@@ -20,8 +20,8 @@
 
 #define PT_RELEASE_MAJOR 0
 #define PT_RELEASE_MINOR 3
-#define PT_RELEASE_PATCH 2
-#define PT_RELEASE       "0.3.2"
+#define PT_RELEASE_PATCH 3
+#define PT_RELEASE       "0.3.3"
 #define PT_RELEASE_STAGE "alpha"               /* pre-1.0: shown beside the number */
 #define PT_RELEASE_NUM   ((PT_RELEASE_MAJOR << 16) | (PT_RELEASE_MINOR << 8) | PT_RELEASE_PATCH)
 

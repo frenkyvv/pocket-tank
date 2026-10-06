@@ -29,7 +29,7 @@ pipeline that made it, a PC simulator, and the firmware for a real board.
 Got the board? **[Install it from your browser](https://pocketank.com/install/)**,
 no toolchain needed.
 
-The current release is **v0.3.2** (alpha); the settings page shows the one
+The current release is **v0.3.3** (alpha); the settings page shows the one
 on your tank. What changed in each release:
 **[pocketank.com/updates](https://pocketank.com/updates/)**.
 
@@ -581,7 +581,7 @@ at the tail, and the one field that went in mid-struct is slid into place on
 load). To start over, hold BOOT and tap the glass for the *Reset tank?*
 prompt; the page also has an "erase and install fresh" button for a board
 that won't get that far. The settings page shows the release at its foot,
-small and dim ("V0.3.2 ALPHA", then the build id), so you can tell what
+small and dim ("V0.3.3 ALPHA", then the build id), so you can tell what
 you run. It is the same mechanism ESPHome and Home
 Assistant use ([ESP Web Tools](https://esphome.github.io/esp-web-tools/)),
 running entirely in the browser over Web Serial.

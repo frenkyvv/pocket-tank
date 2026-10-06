@@ -129,6 +129,10 @@ typedef enum { VEG_KIND_GRASS, VEG_KIND_SWORD } veg_kind_t;
 #define VEG_CAP_LO  0.72f
 #define VEG_CAP_HI  0.95f
 #define VEG_CAP_TAPER 0.12f
+#define VEG_PACE_SPREAD 0.15f                  /* each frond grows at its own pace, 0.85..1.15x
+                                                * (hashed per slot like its ceiling): a bed cut
+                                                * flat by the scissors comes back ragged, not
+                                                * as a hedge (2026-10-05) */
 #define VEG_GLASS_GAP 12                       /* px a ceiling keeps under the glass, where the glass closes in over a frond
                                                 * (the bowl, the watch's upper corners: tank_veg_cap) */
 #define VEG_FRONDS_MAX 16                      /* per-bed frond slots (reef bed: 11-15) */

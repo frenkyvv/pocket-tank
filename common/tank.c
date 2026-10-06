@@ -607,12 +607,19 @@ static void veg_sync(tank_t *t) {
         t->veg_growth[b] = sum / n;
     }
 }
+/* a frond slot's own number in 0..1, one per salt. A full mix: the plain
+ * multiply this replaced stepped ~0.05 per frond, so every grown bed was a
+ * smooth slope and not a ragged skyline (2026-10-05) */
+static float veg_slot_rand(int b, int i, uint32_t salt) {
+    uint32_t h = (uint32_t)(b * VEG_FRONDS_MAX + i) * 0x9E3779B9u ^ salt;
+    h ^= h >> 16; h *= 0x7FEB352Du; h ^= h >> 15; h *= 0x846CA68Bu; h ^= h >> 16;
+    return (float)(h >> 8) / 16777215.0f;
+}
 /* frond i of bed b grows toward its own ceiling: a hash of the slot spread
  * over VEG_CAP_LO..VEG_CAP_HI (a different hash than the fresh tank's start
  * profile, so a tall start does not mean a tall ceiling) */
 float tank_veg_cap(int b, int i) {
-    uint32_t h = (uint32_t)((b * 29 + i + 3) * 2246822519u);
-    float cap = VEG_CAP_LO + (float)(h >> 8 & 1023) / 1023.0f * (VEG_CAP_HI - VEG_CAP_LO);
+    float cap = VEG_CAP_LO + veg_slot_rand(b, i, 0x5EA62A55u) * (VEG_CAP_HI - VEG_CAP_LO);
 #if defined(TANK_ROUND) || defined(TANK_WATCH)             /* the bowl closes in over the outer fronds: a tip stops 12 px under the glass
                                                               (the reef bed taken at its widest, the sword plant wherever it stands);
                                                               the watch's upper corners do the same to the beds by its walls */
@@ -643,7 +650,8 @@ static void veg_grow(tank_t *t, float dg) {
             if (h >= cap) continue;                   /* at (or staged above) its ceiling */
             float room = cap - h;                     /* the last stretch comes in slowly */
             float ease = room < VEG_CAP_TAPER ? fmaxf(0.3f, room / VEG_CAP_TAPER) : 1.0f;
-            t->veg_h[b][i] = fminf(cap, h + dgb * ease);
+            float pace = 1.0f + (veg_slot_rand(b, i, 0xF20D5u) * 2 - 1) * VEG_PACE_SPREAD;   /* its own pace: a flat cut regrows ragged */
+            t->veg_h[b][i] = fminf(cap, h + dgb * pace * ease);
         }
     }
     veg_sync(t);

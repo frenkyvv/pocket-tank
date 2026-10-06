@@ -1443,6 +1443,35 @@ static int selftest_tend(void) {
         grown.veg_h[1][0] = 1.0f; tank_veg_sync(&grown);
         tank_tick_sleep(&grown, 3600);
         if (grown.veg_h[1][0] < 1.0f - 1e-4f) { printf("FAIL: growth pulled a staged frond down\n"); return 1; }
+        /* the skyline is ragged, not a slope (2026-10-05: the ceilings came
+           from a plain multiply and stepped down frond by frond - every
+           grown bed a ramp): neighbors' ceilings turn up and down */
+        for (int b = 0; b < VEG_BEDS; b++) {
+            float x0, x1; int n, turns = 0;
+            tank_veg_bed(&grown, b, &x0, &x1, NULL, &n);
+            for (int i = 2; i < n; i++) {
+                float d0 = tank_veg_cap(b, i - 1) - tank_veg_cap(b, i - 2), d1 = tank_veg_cap(b, i) - tank_veg_cap(b, i - 1);
+                turns += (d0 > 0) != (d1 > 0);
+            }
+            if (turns < n / 4) { printf("FAIL: bed %d's ceilings are a slope (%d turns in %d fronds)\n", b, turns, n); return 1; }
+        }
+        /* a bed cut flat comes back ragged: every frond its own pace
+           (VEG_PACE_SPREAD) - it never regrows as a hedge */
+        {
+            tank_t cut; tank_init(&cut, 777); progression_boot(&cut);
+            tank_veg_set(&cut, 1, 0.20f);
+            tank_tick_sleep(&cut, 8 * 3600);
+            float clo = 1, chi = 0, x0, x1; int n;
+            tank_veg_bed(&cut, 1, &x0, &x1, NULL, &n);
+            for (int i = 0; i < n; i++) {                  /* still growing: the bowl's glass stops the outer ones early */
+                float h = cut.veg_h[1][i];
+                if (h >= tank_veg_cap(1, i) - 1e-3f) continue;
+                if (h < clo) clo = h; if (h > chi) chi = h;
+            }
+            printf("selftest-tend: bed 1 cut flat at 0.20, 8 h asleep: fronds %.2f..%.2f\n", clo, chi);
+            if (chi - clo < 0.03f) { printf("FAIL: a flat cut regrew flat\n"); return 1; }
+            if (chi - clo > 0.25f) { printf("FAIL: a flat cut regrew spiky\n"); return 1; }
+        }
         /* and the untended grown tank still reads as smothered: two beds at
            their ceilings (the trim-it-back signal, relative to the ceilings now) */
         fish_t *gf = &grown.fish[0]; gf->stress = 0;
@@ -2300,6 +2329,16 @@ static int snapshot(const char *prefix, int seconds) {
         render_set_scene_cache(scene);            /* invalidated: its own scene */
         render_tank(&grown, fb, TANK_W);
         snprintf(path, sizeof path, "%s_grown.ppm", prefix); write_ppm(path, fb);
+        render_set_scene_cache(scene);
+        /* _regrow: every bed cut flat by the scissors, then a night - each
+           frond's own pace (VEG_PACE_SPREAD) brings it back ragged */
+        grown = tank;
+        for (int b = 0; b < VEG_BEDS; b++) tank_veg_set(&grown, b, 0.20f);
+        for (int i = 0; i < ALGAE_CELLS; i++) grown.algae[i] = 0;
+        tank_tick_sleep(&grown, 8 * 3600);
+        render_set_scene_cache(scene);
+        render_tank(&grown, fb, TANK_W);
+        snprintf(path, sizeof path, "%s_regrow.ppm", prefix); write_ppm(path, fb);
         render_set_scene_cache(scene);
     }
     render_tank(&tank, fb, TANK_W); render_stats_card(&tank, 0, fb, TANK_W);

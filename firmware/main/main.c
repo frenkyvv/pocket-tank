@@ -222,18 +222,22 @@ static bool night_powers_off(void) {        /* the night: a power-off (the clock
 static int64_t s_rebase_unix, s_rebase_us;  /* a first sync, applied once the save has loaded on the old clock */
 static float s_boot_lived_h;
 static char s_boot_sync[96] = "no sync at this boot";   /* what this boot's sync did, for `clock` (the USB log of a boot off the cable is gone) */
-static uint16_t *s_sync_fb;                 /* the glass while the sync runs (render_clock_sync), drawn by its own task */
-static volatile bool s_sync_drawing;
-static void sync_screen_task(void *arg) {
+/* The sync runs in a worker; the glass is drawn by the boot task alone. The
+ * panel driver is one task's at a time (esp_lcd's SPI io keeps a plain
+ * in-flight count and takes the bus per call): 0.3.2 drew this page from its
+ * own task and let the boot go on after 0.5 s whether the page had stopped
+ * or not - a frame still on the wire met the tank's first frame, both waited
+ * on the bus for good, and the pendant froze on CHECKING THE TIME (three
+ * times, found halted 2026-10-06: syncscr and tank both in spi_device_acquire_bus). */
+static volatile bool s_sync_finished;
+static bool s_sync_ok;
+static int64_t s_sync_u, s_sync_at;
+static TaskHandle_t s_sync_waiter;
+static void sync_worker(void *arg) {
     (void)arg;
-    int64_t t0 = esp_timer_get_time();
-    brightness_apply(false);
-    while (s_sync_drawing) {
-        render_clock_sync(s_sync_fb, TANK_W, (esp_timer_get_time() - t0) / 1e6f);
-        display_port_flush(s_sync_fb);
-        vTaskDelay(pdMS_TO_TICKS(40));
-    }
-    s_sync_drawing = true;                  /* "stopped": the boot may go on drawing */
+    s_sync_ok = net_time_sync(&s_sync_u, &s_sync_at);
+    s_sync_finished = true;
+    xTaskNotifyGive(s_sync_waiter);
     vTaskDelete(NULL);
 }
 static void net_clock_boot(uint16_t *fb) {  /* before the tank exists: the radio has the internal heap to itself */
@@ -241,10 +245,18 @@ static void net_clock_boot(uint16_t *fb) {  /* before the tank exists: the radio
     bool real = nvs_u8("netclk", 0), set = clock_port_now_unix() != 0, ok_before = nvs_u8("netok", 0);
     if (real && set && ok_before) return;    /* a deep-sleep wake on a good clock: it ran all night */
     int64_t u = 0, at = 0;
-    TaskHandle_t screen = NULL;
-    if (fb) { s_sync_fb = fb; s_sync_drawing = true; xTaskCreatePinnedToCore(sync_screen_task, "syncscr", 6144, NULL, 4, &screen, 1); }
-    bool ok = net_time_sync(&u, &at);
-    if (screen) { s_sync_drawing = false; for (int i = 0; i < 50 && !s_sync_drawing; i++) vTaskDelay(pdMS_TO_TICKS(10)); }   /* the last frame out before the tank takes the panel */
+    bool ok;
+    s_sync_finished = false; s_sync_waiter = xTaskGetCurrentTaskHandle();
+    if (fb && xTaskCreatePinnedToCore(sync_worker, "timesync", 8192, NULL, 5, NULL, 1) == pdPASS) {
+        int64_t t0 = esp_timer_get_time();
+        brightness_apply(false);
+        do {                                 /* the page until the worker is done - no time limit: the tank never shares the panel */
+            render_clock_sync(fb, TANK_W, (esp_timer_get_time() - t0) / 1e6f);
+            display_port_flush(fb);
+            ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(40));
+        } while (!s_sync_finished);
+        u = s_sync_u; at = s_sync_at; ok = s_sync_ok;
+    } else ok = net_time_sync(&u, &at);      /* no glass (or no task): ask in place */
     nvs_u8_put("netok", ok);
     snprintf(s_boot_sync, sizeof s_boot_sync, "%s", ok ? "got the time" : "FAILED: no network or no answer");
     if (!ok) {
