@@ -1,5 +1,7 @@
 """Reuse Susi's existing audio reader and private chat bridge; no Telegram sends."""
-import argparse,json,os,pathlib,socket,sys
+import argparse,json,os,pathlib,re,socket,sys
+from collections import Counter
+from voice_server import prepare_audio,usable_transcript
 SUSI=pathlib.Path(os.environ.get('SUSI_PROJECT',str(pathlib.Path.home()/'Documents/New project/Susi-Qwen')))
 sys.path.insert(0,str(SUSI))
 from dotenv import dotenv_values
@@ -11,7 +13,10 @@ def ask(wav,request_id):
     cfg=dotenv_values(SUSI/'.env.telegram-test')
     if str(cfg.get('SUSI_WHISPER_ENABLED','1')).lower() in {'0','false','no'}:
         raise RuntimeError('La lectura de audios está desactivada en Susi.')
+    prepare_audio(wav)
     question=transcribe_audio(wav,base_url=cfg.get('SUSI_WHISPER_BASE_URL') or 'http://127.0.0.1:7860',model=cfg.get('SUSI_WHISPER_MODEL') or 'small',timeout_seconds=180)
+    if not usable_transcript(question):
+        return {"error":"No entendí bien la pregunta. Habla cerca del micrófono y toca Enviar al terminar."}
     question=normalize_spoken_record_request(question)
     runtime=pathlib.Path(cfg.get('SUSI_RUNTIME_DIR') or 'dev_runtime/telegram-test').expanduser()
     if not runtime.is_absolute():runtime=SUSI/runtime

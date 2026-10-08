@@ -4067,6 +4067,9 @@ int main(int argc, char **argv) {
         static uint16_t preview[TANK_W*TANK_H];companion_card_t c={.voice_ready=true};
         companion_set(&c,1000000);companion_show(false);
         companion_touch(PAGE_X+220,PAGE_Y+20,true);companion_touch(PAGE_X+220,PAGE_Y+20,false);
+        if(companion_voice_take_action()!=0)return 4;
+        companion_touch(PAGE_X+414,PAGE_Y+334,true);companion_touch(PAGE_X+414,PAGE_Y+334,false);
+        companion_touch(PAGE_X+220,PAGE_Y+198,true);companion_touch(PAGE_X+220,PAGE_Y+198,false);
         if(companion_voice_take_action()!=1)return 1;
         companion_voice_set(1);companion_render(preview,TANK_W,1000000,true);
         if(argc>2)write_ppm(argv[2],preview);
@@ -4107,12 +4110,13 @@ int main(int argc, char **argv) {
         snprintf(demo.clock,sizeof demo.clock,"Q3 08:24");
         snprintf(demo.extra,sizeof demo.extra,"DATOS FICTICIOS PARA VERIFICACION");
         snprintf(demo.updated,sizeof demo.updated,"PRUEBA");
+        snprintf(demo.local_time,sizeof demo.local_time,"16:25");
         companion_set(&demo,1000000); companion_show(true);
         companion_render(preview,TANK_W,1000001,false);
         write_ppm(argc>2?argv[2]:"companion.ppm",preview);
         if (!companion_touch(PAGE_X+390,PAGE_Y+20,true) || companion_visible()) return 1;
         if (!companion_touch(PAGE_X+390,PAGE_Y+20,false)) return 2;
-        companion_touch(PAGE_X+390,PAGE_Y+20,true);
+        companion_touch(PAGE_X+414,PAGE_Y+334,true);
         if (!companion_visible()) return 3;
         companion_touch(PAGE_X+390,PAGE_Y+20,false);
         printf("companion: preview + navigation passed\n"); return 0;

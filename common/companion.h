@@ -11,6 +11,7 @@ typedef struct {
     bool notice_demo;
     bool voice_ready;
     char voice_reply_id[33];
+    char local_time[6];
     int state; /* 0 waiting, 1 live, 2 final */
 } companion_card_t;
 void companion_set(const companion_card_t *card, int64_t now_us);

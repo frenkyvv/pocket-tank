@@ -5,6 +5,7 @@
 #include <math.h>
 static companion_card_t card;
 static bool visible, pressed, captured;
+static int panel_page; /* 0 home, 1 tracking, 2 notices */
 static int64_t received, notice_started;
 static companion_card_t notice;
 static bool notice_up;
@@ -23,7 +24,7 @@ void companion_set(const companion_card_t *value, int64_t now) { card = *value; 
         notice=*value;snprintf(notice_seen,sizeof notice_seen,"%s",value->notice_id);
         notice_up=true;notice_started=0;
     } }
-void companion_show(bool value) { visible = value; }
+void companion_show(bool value) { visible = value; panel_page=0; }
 bool companion_visible(void) { return visible || notice_up || voice_state; }
 const companion_card_t *companion_card(void) { return &card; }
 bool companion_touch(float x, float y, bool down) {
@@ -35,7 +36,7 @@ bool companion_touch(float x, float y, bool down) {
         }
         pressed=down;captured=down;return true;
     }
-    if(down && !pressed && x>=PAGE_X+150 && x<PAGE_X+345 && y>=PAGE_Y && y<PAGE_Y+42) {
+    if(visible && panel_page==0 && !notice_up && down && !pressed && x>=PAGE_X+24 && x<PAGE_X+424 && y>=PAGE_Y+176 && y<PAGE_Y+220) {
         if(card.voice_ready && received && received>0)voice_action=1;
         else companion_voice_set(4);
         pressed=true;captured=true;return true;
@@ -48,8 +49,16 @@ bool companion_touch(float x, float y, bool down) {
         pressed=down;captured=down;return true;
     }
     if (down && !pressed) {
-        captured = visible || (x >= PAGE_X + 350 && y >= PAGE_Y && y < PAGE_Y + 42);
-        if (captured && x >= PAGE_X + 350 && y < PAGE_Y + 42) visible = !visible;
+        float dx=x-(PAGE_X+414), dy=y-(PAGE_Y+334);
+        bool launcher=dx*dx+dy*dy<=24*24;
+        captured=visible || launcher;
+        if(!visible && launcher) {visible=true;panel_page=0;}
+        else if(visible && x>=PAGE_X+350 && y<PAGE_Y+42) {
+            if(panel_page)panel_page=0;else visible=false;
+        } else if(visible && panel_page==0 && x>=PAGE_X+24 && x<PAGE_X+424) {
+            if(y>=PAGE_Y+232 && y<PAGE_Y+276)panel_page=1;
+            else if(y>=PAGE_Y+288 && y<PAGE_Y+332)panel_page=2;
+        }
     }
     bool consume = captured || visible;
     pressed = down;
@@ -82,7 +91,6 @@ void companion_render(uint16_t *fb, int s, int64_t now, bool chip) {
     if(notice_up) {
         render_rect(fb,s,-PAGE_X,-PAGE_Y,TANK_W,TANK_H,0x0b111c);
         text(fb,s,18,14,2,green,notice.notice_source[0]?notice.notice_source:"SUSI");
-        render_button(fb,s,150,4,194,32,0x182c34,0x405260,"HABLAR CON SUSI",1);
         render_button(fb,s,350,4,94,32,0x182c34,0x405260,"PECERA",2);
         text(fb,s,18,52,2,notice.notice_priority>=2?red:gray,notice.notice_demo?"DEMO / AVISO DE PRUEBA":notice.notice_priority>=2?"AVISO PRIORITARIO":"NUEVO AVISO");
         text(fb,s,18,86,2,white,notice.notice_title);
@@ -100,13 +108,39 @@ void companion_render(uint16_t *fb, int s, int64_t now, bool chip) {
         return;
     }
     if (!visible) {
-        if (chip) {render_button(fb,s,350,4,94,32,0x101820,0x405260,"AVISOS",2);render_button(fb,s,150,4,194,32,0x101820,0x405260,"HABLAR CON SUSI",1);}
+        if (chip) {
+            for(int dy=-23;dy<=23;dy++) {int half=(int)sqrtf(23*23-dy*dy);render_rect(fb,s,414-half,334+dy,half*2+1,1,0x183b32);}
+            /* Three dots: a quiet launcher without a text label. */
+            for(int i=0;i<3;i++)render_rect(fb,s,403+i*9,332,4,4,green);
+        }
         return;
     }
-    render_rect(fb,s,-PAGE_X,-PAGE_Y,TANK_W,TANK_H,0x0b0e12);
-    render_button(fb,s,350,4,94,32,0x182c34,0x405260,"PECERA",2);
+    render_rect(fb,s,-PAGE_X,-PAGE_Y,TANK_W,TANK_H,0x0b111c);
+    render_button(fb,s,350,4,94,32,0x182c34,0x405260,panel_page?"VOLVER":"PECERA",2);
+    if(panel_page==0) {
+        text(fb,s,24,18,2,green,"MI COMPANERO");
+        text(fb,s,24,68,5,white,card.local_time[0]?card.local_time:"--:--");
+        text(fb,s,24,125,2,gray,"MONTERREY");
+        text(fb,s,24,149,1,received && now-received<30000000?green:red,received && now-received<30000000?"CONECTADO POR WIFI":"ESPERANDO CONEXION");
+        render_button(fb,s,24,176,400,44,0x183b32,green,"HABLAR CON SUSI",2);
+        render_button(fb,s,24,232,400,44,0x182c34,0x405260,"SEGUIMIENTO",2);
+        render_button(fb,s,24,288,400,44,0x182c34,0x405260,"AVISOS",2);
+        return;
+    }
+    if(panel_page==2) {
+        text(fb,s,24,18,2,green,"AVISOS DE SUSI");
+        text(fb,s,24,100,2,white,notice.notice_id[0]?notice.notice_title:"TODO TRANQUILO");
+        const char *cursor=notice.notice_message;
+        for(int row=0;row<7 && *cursor;row++) {
+            int n=0;while(cursor[n] && cursor[n]!='\n' && n<33)n++;
+            if(n==33 && cursor[n]) {int cut=n;while(cut>0 && cursor[cut]!=' ')cut--;if(cut)n=cut;}
+            char line[34];memcpy(line,cursor,n);line[n]=0;text(fb,s,24,144+row*24,2,white,line);
+            cursor+=n;while(*cursor==' '||*cursor=='\n')cursor++;
+        }
+        if(!notice.notice_id[0])text(fb,s,24,148,2,gray,"TUS AVISOS APARECERAN AQUI");
+        return;
+    }
     text(fb,s,18,14,2,green,"BOB / NFL");
-    render_button(fb,s,150,4,194,32,0x182c34,0x405260,"HABLAR CON SUSI",1);
     if (!card.active) {
         text(fb,s,24,110,2,white,"ESPERANDO SEGUIMIENTO");
         text(fb,s,24,160,2,gray,"PIDE A BOB: SIGUE A...");

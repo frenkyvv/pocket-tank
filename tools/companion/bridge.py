@@ -101,6 +101,7 @@ def wifi_main(args):
             payload = payload_for(card,stale,args.demo)
             payload['show'] = show_pending
             payload['voice_ready'] = voice_server is not None
+            payload['local_time'] = datetime.now(ZoneInfo('America/Monterrey')).strftime('%H:%M')
             event=notifications.next()
             if event:
                 payload.update(notice_id=event['id'],notice_source=display_text(event['source'],16),

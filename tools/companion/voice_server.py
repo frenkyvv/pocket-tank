@@ -1,4 +1,6 @@
 """Authenticated LAN microphone receiver, reusing Susi's audio pipeline."""
+import array
+from collections import Counter
 import concurrent.futures,hashlib,hmac,http.server,io,json,os,pathlib,re,socket,subprocess,tempfile,threading,unicodedata,wave
 from notifications import emit,DEFAULT_ROOT
 MAX_WAV=44+16000*2*12
@@ -12,6 +14,25 @@ def valid_wav(body):
         with wave.open(io.BytesIO(body),'rb') as w:
             return w.getnchannels()==1 and w.getsampwidth()==2 and w.getframerate()==16000 and 4000<=w.getnframes()<=192000 and len(w.readframes(w.getnframes()))==w.getnframes()*2
     except (wave.Error,EOFError):return False
+
+
+def usable_transcript(text):
+    normalized=unicodedata.normalize('NFKD',str(text)).encode('ascii','ignore').decode().lower()
+    tokens=re.findall(r'\w+',normalized)
+    if not tokens:return False
+    if len(tokens)>12 and max(Counter(tokens).values())>len(tokens)*0.6:return False
+    return not re.fullmatch(r'(?:subtitulos realizados por la comunidad de amara\.?org|gracias por ver (?:el|este) video)[.! ]*',normalized.strip())
+
+def prepare_audio(path):
+    # Quiet board audio gets bounded gain on the Mac, not speech processing on ESP32.
+    with wave.open(str(path),'rb') as w:
+        samples=array.array('h',w.readframes(w.getnframes()))
+    peak=max((abs(v) for v in samples),default=0)
+    if 50<=peak<12000:
+        gain=min(8,12000/peak)
+        samples=array.array('h',(max(-32768,min(32767,int(v*gain))) for v in samples))
+        with wave.open(str(path),'wb') as w:
+            w.setnchannels(1);w.setsampwidth(2);w.setframerate(16000);w.writeframes(samples.tobytes())
 
 def screen_text(value,limit=236):
     value=' '.join(str(value or '').split())

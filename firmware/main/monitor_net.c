@@ -30,7 +30,7 @@ bool monitor_decode(const char *json, companion_card_t *c) {
     if(!cJSON_IsObject(root)||!cJSON_IsBool(cJSON_GetObjectItemCaseSensitive(root,"active"))) {cJSON_Delete(root);return false;}
     memset(c,0,sizeof *c);
 #define STR(field) do {cJSON *v=cJSON_GetObjectItemCaseSensitive(root,#field);if(cJSON_IsString(v)) snprintf(c->field,sizeof c->field,"%s",v->valuestring);} while(0)
-    STR(name);STR(match);STR(title);STR(clock);STR(updated);STR(extra);
+    STR(local_time);STR(name);STR(match);STR(title);STR(clock);STR(updated);STR(extra);
     STR(voice_reply_id);STR(notice_id);STR(notice_source);STR(notice_title);STR(notice_message);STR(notice_time);
 #undef STR
     if(c->notice_id[0]) {

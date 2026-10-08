@@ -113,8 +113,10 @@ bool codec_port_mic_adc_down(i2c_master_bus_handle_t bus) {
     return ok;
 }
 
-/* Analog microphone sequence from Espressif's es8311 reference driver. */
+/* esp_codec_dev ADC start: restore VMID and analog input after suspend,
+   use microphone data (no DAC reference), and 42 dB PGA gain. */
 bool codec_port_microphone(void) {
     return s_dev && wr(0x0A,0x0C) && wr(0x0E,0x02) && wr(0x14,0x1A)
-        && wr(0x16,0x04) && wr(0x17,0xC8) && wr(0x1C,0x6A);
+        && wr(0x0D,0x01) && wr(0x15,0x40) && wr(0x1B,0x0A)
+        && wr(0x44,0x08) && wr(0x16,0x07) && wr(0x17,0xBF) && wr(0x1C,0x6A);
 }
