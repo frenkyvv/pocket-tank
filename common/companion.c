@@ -9,6 +9,11 @@ static int64_t received, notice_started;
 static companion_card_t notice;
 static bool notice_up;
 static char notice_seen[33], notice_done[33];
+static int voice_state, voice_action;
+static int64_t voice_started;
+void companion_voice_set(int state) {voice_state=state;voice_started=0;}
+int companion_voice_state(void) {return voice_state;}
+int companion_voice_take_action(void) {int action=voice_action;voice_action=0;return action;}
 const char *companion_notice_done(void) {return notice_done;}
 bool companion_notice_active(void) {return notice_up;}
 static void dismiss_notice(void) {snprintf(notice_done,sizeof notice_done,"%s",notice.notice_id);notice_up=false;}
@@ -19,9 +24,22 @@ void companion_set(const companion_card_t *value, int64_t now) { card = *value; 
         notice_up=true;notice_started=0;
     } }
 void companion_show(bool value) { visible = value; }
-bool companion_visible(void) { return visible || notice_up; }
+bool companion_visible(void) { return visible || notice_up || voice_state; }
 const companion_card_t *companion_card(void) { return &card; }
 bool companion_touch(float x, float y, bool down) {
+    if(voice_state) {
+        if(down && !pressed) {
+            if(x>=PAGE_X+350 && y<PAGE_Y+42) {voice_action=3;voice_state=0;visible=false;}
+            else if(voice_state==1 && y>=PAGE_Y+308 && y<PAGE_Y+360)voice_action=2;
+            else if(voice_state>=4 && y>=PAGE_Y+308)voice_state=0;
+        }
+        pressed=down;captured=down;return true;
+    }
+    if(down && !pressed && x>=PAGE_X+150 && x<PAGE_X+345 && y>=PAGE_Y && y<PAGE_Y+42) {
+        if(card.voice_ready && received && received>0)voice_action=1;
+        else companion_voice_set(4);
+        pressed=true;captured=true;return true;
+    }
     if (notice_up) {
         if(down && !pressed) {
             if(x>=PAGE_X+350 && y<PAGE_Y+42) {dismiss_notice();visible=false;}
@@ -43,6 +61,19 @@ static void text(uint16_t *fb, int s, int x, int y, int scale, uint32_t rgb, con
 }
 void companion_render(uint16_t *fb, int s, int64_t now, bool chip) {
     const uint32_t white=0xf6f8fa, gray=0xaeb7c1, green=0x35dfa0, red=0xff667b;
+    if(voice_state) {
+        if(!voice_started)voice_started=now;
+        if(voice_state==3 && now-voice_started>450000000LL)voice_state=4;
+        render_rect(fb,s,-PAGE_X,-PAGE_Y,TANK_W,TANK_H,0x0b111c);
+        text(fb,s,18,14,2,green,"HABLAR CON SUSI");
+        render_button(fb,s,350,4,94,32,0x182c34,0x405260,"PECERA",2);
+        text(fb,s,24,100,3,white,voice_state==1?"TE ESCUCHO":voice_state==2?"ENVIANDO...":voice_state==3?"SUSI RESPONDE":voice_state==5?"NO ESCUCHE VOZ":"SIN CONEXION");
+        text(fb,s,24,165,2,gray,voice_state==1?"DI TU PREGUNTA Y TOCA ENVIAR":voice_state==2?"TU AUDIO VIAJA POR WIFI":voice_state==3?"SUSI CONVIERTE TU VOZ A TEXTO":voice_state==5?"ACERCATE AL MICROFONO":"REVISA WIFI Y LA MAC");
+        text(fb,s,24,205,2,gray,voice_state==1?"MAXIMO 12 SEGUNDOS":voice_state==3?"LA PECERA SIGUE ACTIVA":"PUEDES VOLVER A LA PECERA");
+        if(voice_state==1) {char elapsed[40];snprintf(elapsed,sizeof elapsed,"GRABANDO %lld / 12 S",(now-voice_started)/1000000);text(fb,s,24,250,2,green,elapsed);}
+        if(voice_state==1 || voice_state>=4)render_button(fb,s,24,318,400,38,0x183b32,0x35dfa0,voice_state==1?"ENVIAR":"LISTO",2);
+        return;
+    }
     if(notice_up) {
         if(!notice_started)notice_started=now;
         int seconds=notice.notice_seconds; if(seconds<5||seconds>60)seconds=20;
@@ -51,6 +82,7 @@ void companion_render(uint16_t *fb, int s, int64_t now, bool chip) {
     if(notice_up) {
         render_rect(fb,s,-PAGE_X,-PAGE_Y,TANK_W,TANK_H,0x0b111c);
         text(fb,s,18,14,2,green,notice.notice_source[0]?notice.notice_source:"SUSI");
+        render_button(fb,s,150,4,194,32,0x182c34,0x405260,"HABLAR CON SUSI",1);
         render_button(fb,s,350,4,94,32,0x182c34,0x405260,"PECERA",2);
         text(fb,s,18,52,2,notice.notice_priority>=2?red:gray,notice.notice_demo?"DEMO / AVISO DE PRUEBA":notice.notice_priority>=2?"AVISO PRIORITARIO":"NUEVO AVISO");
         text(fb,s,18,86,2,white,notice.notice_title);
@@ -68,12 +100,13 @@ void companion_render(uint16_t *fb, int s, int64_t now, bool chip) {
         return;
     }
     if (!visible) {
-        if (chip) render_button(fb,s,350,4,94,32,0x101820,0x405260,"AVISOS",2);
+        if (chip) {render_button(fb,s,350,4,94,32,0x101820,0x405260,"AVISOS",2);render_button(fb,s,150,4,194,32,0x101820,0x405260,"HABLAR CON SUSI",1);}
         return;
     }
     render_rect(fb,s,-PAGE_X,-PAGE_Y,TANK_W,TANK_H,0x0b0e12);
     render_button(fb,s,350,4,94,32,0x182c34,0x405260,"PECERA",2);
     text(fb,s,18,14,2,green,"BOB / NFL");
+    render_button(fb,s,150,4,194,32,0x182c34,0x405260,"HABLAR CON SUSI",1);
     if (!card.active) {
         text(fb,s,24,110,2,white,"ESPERANDO SEGUIMIENTO");
         text(fb,s,24,160,2,gray,"PIDE A BOB: SIGUE A...");

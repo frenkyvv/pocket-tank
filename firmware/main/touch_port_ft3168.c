@@ -455,7 +455,7 @@ void touch_port_poll(tank_t *t) {
      * flipped screen: mirror both, so downstream gestures live in displayed space */
     float tx = s_lx, ty = s_ly;
     if (touched) map_touch(x[0], y[0], &tx, &ty);
-    if (!setup_active() && !s_cf && companion_notice_active() && companion_touch(tx,ty,touched)) {s_down=false;return;}
+    if (!setup_active() && !s_cf && (companion_notice_active() || companion_voice_state()) && companion_touch(tx,ty,touched)) {s_down=false;return;}
     if (!setup_active() && !s_cf && !s_ms && !s_set && !s_shop && !s_upd && !s_bat && s_sel < 0 && companion_touch(tx, ty, touched)) { s_down = false; return; }           /* calibrated (above); the release keeps the last position */
     if (touched && !s_down) {
         audio_port_prewarm();                   /* the release's cue plays warm */

@@ -33,7 +33,12 @@ static const char *TAG = "audio";
 extern const uint8_t _binary_sounds_bin_start[];
 extern const uint8_t _binary_sounds_bin_end[];
 
-static i2s_chan_handle_t  s_tx;
+static i2s_chan_handle_t  s_tx, s_rx;
+static SemaphoreHandle_t s_record_done, s_record_lock;
+static int16_t *s_record_buf;
+static size_t s_record_capacity, s_record_count;
+static volatile bool s_record_req;
+static volatile bool *s_record_stop;
 static SemaphoreHandle_t  s_mx;
 static TaskHandle_t       s_task;
 static bool s_ok, s_up;
@@ -101,7 +106,7 @@ static void bring_up(void) {
     bool ok = codec_port_up();
     write_silence(s_settle_codec_ms);         /* the DAC's vmid / reference settle (fast charge, then normal) */
     codec_port_settled();
-    amp(true);
+    amp(!s_record_req);
     write_silence(s_settle_amp_ms);           /* the NS4150B's own start-up (pop suppression): an 80 ms card
                                                  cue landed inside it at 30 ms, and mostly still at 30+40 */
     s_up = true; s_quiet_since = 0;
@@ -128,11 +133,33 @@ static void player(void *arg) {
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
             if (s_sleep_req) { s_sleep_req = false; continue; }
             xSemaphoreTake(s_mx, portMAX_DELAY);
-            bool any = audio_active() || s_warm_req;
+            bool any = audio_active() || s_warm_req || s_record_req;
             xSemaphoreGive(s_mx);
             s_warm_req = false;
             if (!any) continue;
             bring_up();
+        }
+        if(s_record_req) {
+            amp(false);
+            xSemaphoreTake(s_mx,portMAX_DELAY);audio_stop_all();xSemaphoreGive(s_mx);
+            s_record_count=0;
+            if(codec_port_microphone() && i2s_channel_enable(s_rx)==ESP_OK) {
+                int16_t block[BLOCK];size_t got=0;
+                int64_t until=esp_timer_get_time()+200000;
+                while(esp_timer_get_time()<until) i2s_channel_read(s_rx,block,sizeof block,&got,100);
+                int64_t started=esp_timer_get_time();
+                while(!*s_record_stop && s_record_count<s_record_capacity && esp_timer_get_time()-started<12000000) {
+                    i2s_channel_write(s_tx,s_buf,sizeof s_buf,&got,100);
+                    size_t remaining=(s_record_capacity-s_record_count)*sizeof(int16_t);
+                    if(remaining>sizeof block)remaining=sizeof block;
+                    got=0;
+                    if(i2s_channel_read(s_rx,s_record_buf+s_record_count,remaining,&got,100)==ESP_OK)s_record_count+=got/2;
+                }
+                i2s_channel_disable(s_rx);
+            }
+            bring_down();s_record_req=false;s_warm_req=false;
+            ESP_LOGI(TAG,"microphone captured %u samples",(unsigned)s_record_count);
+            xSemaphoreGive(s_record_done);continue;
         }
         xSemaphoreTake(s_mx, portMAX_DELAY);
         int live = audio_render(s_buf, BLOCK);
@@ -169,14 +196,17 @@ bool audio_port_init(i2c_master_bus_handle_t bus) {
     gpio_config(&io); amp(false);
     i2s_chan_config_t cc = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
     cc.dma_desc_num = 4; cc.dma_frame_num = BLOCK;
-    if (i2s_new_channel(&cc, &s_tx, NULL) != ESP_OK) { ESP_LOGE(TAG, "no I2S channel"); return false; }
+    if (i2s_new_channel(&cc, &s_tx, (board_is_watch()||board_is_round())?NULL:&s_rx) != ESP_OK) { ESP_LOGE(TAG, "no I2S channel"); return false; }
     i2s_std_config_t std = {
         .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(SND_RATE),              /* MCLK = 256 fs = 4.096 MHz */
         .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
-        .gpio_cfg = { .mclk = PIN_I2S_MCLK, .bclk = PIN_I2S_BCLK, .ws = PIN_I2S_WS, .dout = PIN_I2S_DOUT, .din = I2S_GPIO_UNUSED,
+        .gpio_cfg = { .mclk = PIN_I2S_MCLK, .bclk = PIN_I2S_BCLK, .ws = PIN_I2S_WS, .dout = PIN_I2S_DOUT, .din = (board_is_watch()||board_is_round())?I2S_GPIO_UNUSED:15,
                       .invert_flags = { 0 } },
     };
     if (i2s_channel_init_std_mode(s_tx, &std) != ESP_OK) { ESP_LOGE(TAG, "I2S std init failed"); return false; }
+    if(board_is_watch() || board_is_round()) { ESP_LOGW(TAG,"voice capture only enabled on rectangular 1.8 board"); }
+    else if(i2s_channel_init_std_mode(s_rx,&std)!=ESP_OK) {ESP_LOGE(TAG,"I2S microphone init failed");return false;}
+    s_record_done=xSemaphoreCreateBinary();s_record_lock=xSemaphoreCreateMutex();
     audio_init((const int16_t *)_binary_sounds_bin_start, SND_BANK_SAMPLES);   /* flash-mapped: no RAM */
     load_volume(); audio_set_volume(s_volume);
     s_mx = xSemaphoreCreateMutex();
@@ -188,7 +218,7 @@ bool audio_port_init(i2c_master_bus_handle_t bus) {
 }
 
 void audio_port_play(int cue, int pitch_q8) {
-    if (!s_ok) return;
+    if (!s_ok || s_record_req) return;
     xSemaphoreTake(s_mx, portMAX_DELAY);
     bool started = audio_play(cue, pitch_q8, now_ms());
     xSemaphoreGive(s_mx);
@@ -231,3 +261,12 @@ void audio_port_tune(int codec_ms, int amp_ms, int idle_s) {
 }
 bool audio_port_up(void) { return s_up; }
 const char *audio_port_state(void) { return !s_ok ? "absent" : s_up ? "up" : "idle"; }
+
+size_t audio_port_record(int16_t *samples,size_t capacity,volatile bool *stop) {
+    if(!s_ok || !s_rx || !samples || !capacity || !stop || !s_record_lock || !s_record_done)return 0;
+    if(xSemaphoreTake(s_record_lock,0)!=pdTRUE)return 0;
+    s_record_buf=samples;s_record_capacity=capacity;s_record_stop=stop;
+    s_record_req=true;xTaskNotifyGive(s_task);
+    xSemaphoreTake(s_record_done,portMAX_DELAY);
+    size_t count=s_record_count;xSemaphoreGive(s_record_lock);return count;
+}

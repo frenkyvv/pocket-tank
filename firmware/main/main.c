@@ -20,6 +20,7 @@
 #include "render.h"
 #include "companion.h"
 #include "monitor_net.h"
+#include "voice_port.h"
 #include "psram_plan.h"
 #include "display_port.h"
 #include "advisor_llm_esp.h"
@@ -622,6 +623,7 @@ static void tank_task(void *arg) {
         touch_port_set_inverted(inv);
         touch_port_poll(&tank);
         monitor_net_poll();
+        voice_port_poll();
         director_poll(&tank);
         int ans = touch_port_confirm_take();
         if (ans > 0) reset_tank();

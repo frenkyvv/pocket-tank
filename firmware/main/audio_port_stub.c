@@ -17,3 +17,5 @@ void audio_port_deep_sleep_pins(void) {}
 void audio_port_tune(int codec_ms, int amp_ms, int idle_s) { (void)codec_ms; (void)amp_ms; (void)idle_s; }
 bool audio_port_up(void) { return false; }
 const char *audio_port_state(void) { return "stub"; }
+
+size_t audio_port_record(int16_t *samples,size_t capacity,volatile bool *stop) {(void)samples;(void)capacity;(void)stop;return 0;}

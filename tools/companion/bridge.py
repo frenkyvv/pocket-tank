@@ -78,6 +78,11 @@ def wifi_main(args):
     key = args.key_file.read_text().strip()
     if len(key) != 64 or any(c not in '0123456789abcdefABCDEF' for c in key):
         raise ValueError('Clave del monitor invalida')
+    from voice_server import start as start_voice
+    try:
+        voice_server=start_voice(key); print('Voz de Susi disponible en la red local',flush=True)
+    except OSError:
+        voice_server=None; print('No se pudo abrir el receptor de voz; avisos disponibles',flush=True)
     started = time.monotonic()
     notifications = NotificationQueue()
     last_ack = 0
@@ -95,12 +100,14 @@ def wifi_main(args):
             card = demo_card() if args.demo else cards[index] if cards else {}
             payload = payload_for(card,stale,args.demo)
             payload['show'] = show_pending
+            payload['voice_ready'] = voice_server is not None
             event=notifications.next()
             if event:
                 payload.update(notice_id=event['id'],notice_source=display_text(event['source'],16),
                     notice_title=display_text(event['title'],32),notice_message=display_text(event['message'],240),
                     notice_time=datetime.fromtimestamp(event['created'],ZoneInfo('America/Monterrey')).strftime('%H:%M'),
-                    notice_priority=event['priority'],notice_seconds=20,notice_demo=event.get('demo',False))
+                    notice_priority=event['priority'],notice_seconds=20,notice_demo=event.get('demo',False),
+                    voice_reply_id=event.get('voice_reply_id',''))
             seq = time.time_ns() // 1000000
             sock.sendto(wifi_packet(payload,key,seq),(target,19432))
             accepted = False

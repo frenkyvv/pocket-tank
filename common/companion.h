@@ -9,10 +9,15 @@ typedef struct {
     char notice_id[33], notice_source[17], notice_title[33], notice_message[241], notice_time[9];
     int notice_seconds, notice_priority;
     bool notice_demo;
+    bool voice_ready;
+    char voice_reply_id[33];
     int state; /* 0 waiting, 1 live, 2 final */
 } companion_card_t;
 void companion_set(const companion_card_t *card, int64_t now_us);
 void companion_show(bool visible);
+void companion_voice_set(int state); /* 0 idle, 1 recording, 2 sending, 3 waiting, 4 unavailable */
+int companion_voice_state(void);
+int companion_voice_take_action(void); /* 1 record, 2 send, 3 cancel */
 const char *companion_notice_done(void);
 bool companion_notice_active(void);
 bool companion_visible(void);

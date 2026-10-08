@@ -112,3 +112,9 @@ bool codec_port_mic_adc_down(i2c_master_bus_handle_t bus) {
     ESP_LOGI(TAG, "ES7210 @0x40 suspended%s (POWER_DOWN %02x)", ok ? "" : " - a write FAILED", r06);
     return ok;
 }
+
+/* Analog microphone sequence from Espressif's es8311 reference driver. */
+bool codec_port_microphone(void) {
+    return s_dev && wr(0x0A,0x0C) && wr(0x0E,0x02) && wr(0x14,0x1A)
+        && wr(0x16,0x04) && wr(0x17,0xC8) && wr(0x1C,0x6A);
+}

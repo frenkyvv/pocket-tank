@@ -8,7 +8,7 @@ import uuid
 
 DEFAULT_ROOT = pathlib.Path.home() / 'Library/Application Support/BobMonitor/notifications'
 
-def emit(title, message, *, source='Susi', priority=1, ttl=3600, event_id=None, root=DEFAULT_ROOT, demo=False):
+def emit(title, message, *, source='Susi', priority=1, ttl=3600, event_id=None, root=DEFAULT_ROOT, demo=False, voice_reply_id=None):
     root = pathlib.Path(root)
     (root/'pending').mkdir(parents=True, exist_ok=True, mode=0o700)
     event_id = event_id or uuid.uuid4().hex
@@ -16,6 +16,7 @@ def emit(title, message, *, source='Susi', priority=1, ttl=3600, event_id=None, 
         raise ValueError('Invalid notification id')
     event={'id':event_id,'source':str(source)[:16],'title':str(title)[:60],'message':str(message)[:400],
            'priority':max(0,min(2,int(priority))),'created':time.time(),'expires':time.time()+max(20,min(86400,ttl)), 'demo':bool(demo)}
+    if voice_reply_id:event['voice_reply_id']=voice_reply_id
     if (root/'done'/f'{event_id}.json').exists():return event_id
     target=root/'pending'/f'{event_id}.json'
     if target.exists():return event_id

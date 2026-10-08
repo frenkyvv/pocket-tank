@@ -16,6 +16,7 @@ bool codec_port_present(void);
  * measured (SYS0D F8). */
 bool codec_port_up(void);
 void codec_port_settled(void);
+bool codec_port_microphone(void);
 void codec_port_down(void);
 void codec_port_dump(void);
 /* the round 1.75C's ES7210 microphone ADC (I2C 0x40), which the tank never

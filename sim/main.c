@@ -4063,6 +4063,20 @@ static int selftest_card(const char *prefix) {
 }
 
 int main(int argc, char **argv) {
+    if(argc>1 && !strcmp(argv[1],"--companion-voice-preview")) {
+        static uint16_t preview[TANK_W*TANK_H];companion_card_t c={.voice_ready=true};
+        companion_set(&c,1000000);companion_show(false);
+        companion_touch(PAGE_X+220,PAGE_Y+20,true);companion_touch(PAGE_X+220,PAGE_Y+20,false);
+        if(companion_voice_take_action()!=1)return 1;
+        companion_voice_set(1);companion_render(preview,TANK_W,1000000,true);
+        if(argc>2)write_ppm(argv[2],preview);
+        companion_touch(PAGE_X+100,PAGE_Y+335,true);companion_touch(PAGE_X+100,PAGE_Y+335,false);
+        if(companion_voice_take_action()!=2)return 2;
+        companion_voice_set(3);companion_touch(PAGE_X+390,PAGE_Y+20,true);companion_touch(PAGE_X+390,PAGE_Y+20,false);
+        if(companion_voice_take_action()!=3 || companion_voice_state())return 3;
+        printf("voice touch: start, send, cancel passed\n");return 0;
+    }
+
     if (argc > 1 && !strcmp(argv[1], "--companion-notice-preview")) {
         static uint16_t preview[TANK_W*TANK_H];
         companion_card_t value={.notice_seconds=20,.notice_priority=1,.notice_demo=true};

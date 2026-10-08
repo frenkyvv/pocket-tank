@@ -11,6 +11,8 @@
 #ifndef AUDIO_PORT_H
 #define AUDIO_PORT_H
 #include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
 #include "driver/i2c_master.h"
 
 bool audio_port_init(i2c_master_bus_handle_t bus);   /* false = no codec / no bank: every call a no-op */
@@ -26,6 +28,7 @@ void audio_port_set_night(bool night);
 void audio_port_sleep(void);                          /* silence + everything down; returns when it is */
 void audio_port_deep_sleep_pins(void);                /* right before esp_deep_sleep_start: I2S + amp CTRL driven low and HELD (2026-09-16) */
 void audio_port_tune(int codec_ms, int amp_ms, int idle_s);   /* -1 = keep; idle 0 = warm while awake; bench knobs */
+size_t audio_port_record(int16_t *samples, size_t capacity, volatile bool *stop);
 bool audio_port_up(void);                             /* codec + amp currently powered (director / logs) */
 const char *audio_port_state(void);                   /* one word for the log */
 

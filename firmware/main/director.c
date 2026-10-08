@@ -14,6 +14,7 @@
 #include "director.h"
 #include "companion.h"
 #include "monitor_net.h"
+#include "voice_port.h"
 #include "cJSON.h"
 #include <math.h>
 #include "update.h"
@@ -226,11 +227,12 @@ static void run(tank_t *t, char *line) {
         const char *payload = line + 8;
         if (!strcmp(payload, "status")) {
             monitor_net_status();
-            ESP_LOGI(TAG,"NOTICE active=%d done=%s",companion_notice_active(),companion_notice_done());
+            ESP_LOGI(TAG,"NOTICE active=%d done=%s voice=%d",companion_notice_active(),companion_notice_done(),companion_voice_state());
             const companion_card_t *c=companion_card();
             ESP_LOGI(TAG,"MONITOR STATUS visible=%d active=%d demo=%d yards=%s%.1f average=%s%.1f name=%s", companion_visible(),c->active,c->demo,c->has_yards?"":"unknown/",c->yards,c->has_average?"":"unknown/",c->average,c->name);
             return;
         }
+        if (!strcmp(payload,"voice")) {voice_port_start();return;}
         if (!strcmp(payload, "show")) { companion_show(true); ESP_LOGI(TAG,"MONITOR OK show"); return; }
         if (!strcmp(payload, "hide")) { companion_show(false); ESP_LOGI(TAG,"MONITOR OK hide"); return; }
         if (!strncmp(payload,"key ",4)) { ESP_LOGI(TAG,"MONITOR key %s (restart to enable WiFi)",monitor_key_set(payload+4)?"saved":"rejected"); return; }

@@ -67,3 +67,30 @@ and the Mac must be awake. USB recovery does not drain the notification outbox.
 Run `python3 -m unittest discover -s tools/companion -p 'test_*.py'` and
 `sim/fishsim --companion-notice-preview output.ppm` for transport/outbox and
 notice expiry, duplicate suppression and touch behavior checks.
+
+## Push-to-talk with Susi
+
+The rectangular Waveshare 1.8 board offers HABLAR CON SUSI on the aquarium
+and monitor. Tap, speak, then tap ENVIAR; capture stops automatically after
+12 seconds. PECERA cancels recording. The existing codec player owns both
+I2S channels; speaker cues are paused while the analog ES8311 microphone
+records mono 16-bit PCM at 16 kHz into PSRAM. No continuous listening occurs.
+
+The signed UDP sender also advertises voice readiness. The ESP32 learns
+the sender IP only from authenticated snapshots, then uploads a bounded WAV
+to the Mac on TCP 19433 with a random request ID and HMAC-SHA256 over
+`voice:<id>\n` plus the raw WAV bytes. The receiver validates format, length,
+signature and duplicate IDs, accepts one request at a time, and removes its
+temporary audio after processing. No router forwarding is required.
+
+`ask_susi.py` runs in the configured Susi-Qwen environment, reuses
+`susi_modules.whisper_transcription.transcribe_audio`, and sends the recognized
+text to Susi's existing private Unix chat bridge using its voice request route.
+The collector returns the answer without sending a Telegram message. A
+screen-sized response returns through the notification outbox; full replies
+are private JSON under BobMonitor/notifications/voice-replies. Whisper in
+Pinokio, Susi, the Mac bridge and the Mac itself must remain running.
+
+Voice touch/cancellation check: `sim/fishsim --companion-voice-preview output.ppm`.
+Hardware reference: https://files.waveshare.com/wiki/ESP32-S3-Touch-AMOLED-1.8/ESP32-S3-Touch-AMOLED-1.8.pdf
+ES8311 microphone reference: https://github.com/espressif/esp-bsp/blob/master/components/es8311/es8311.c
