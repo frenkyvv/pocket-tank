@@ -56,6 +56,7 @@
 #include "advisor.h"
 #include "advisor_core.h"
 #include "render.h"
+#include "companion.h"
 #include "progression.h"
 #include "version.h"
 #include "setup.h"
@@ -4062,6 +4063,26 @@ static int selftest_card(const char *prefix) {
 }
 
 int main(int argc, char **argv) {
+    if (argc > 1 && !strcmp(argv[1], "--companion-preview")) {
+        static uint16_t preview[TANK_W * TANK_H];
+        companion_card_t demo = {.active=true,.demo=true,.has_yards=true,.has_average=true,.yards=48,.average=65,.state=1};
+        snprintf(demo.name,sizeof demo.name,"JUGADOR DE EJEMPLO");
+        snprintf(demo.match,sizeof demo.match,"VISITA 14 - 10 LOCAL");
+        snprintf(demo.title,sizeof demo.title,"YARDAS RECIBIDAS");
+        snprintf(demo.clock,sizeof demo.clock,"Q3 08:24");
+        snprintf(demo.extra,sizeof demo.extra,"DATOS FICTICIOS PARA VERIFICACION");
+        snprintf(demo.updated,sizeof demo.updated,"PRUEBA");
+        companion_set(&demo,1000000); companion_show(true);
+        companion_render(preview,TANK_W,1000001,false);
+        write_ppm(argc>2?argv[2]:"companion.ppm",preview);
+        if (!companion_touch(PAGE_X+390,PAGE_Y+20,true) || companion_visible()) return 1;
+        if (!companion_touch(PAGE_X+390,PAGE_Y+20,false)) return 2;
+        companion_touch(PAGE_X+390,PAGE_Y+20,true);
+        if (!companion_visible()) return 3;
+        companion_touch(PAGE_X+390,PAGE_Y+20,false);
+        printf("companion: preview + navigation passed\n"); return 0;
+    }
+
     for (int a = 1; a < argc; a++)
         if (strcmp(argv[a], "--greedy") == 0) advisor_core_sample = false;
     for (int a = 1; a < argc; a++) {                 /* mode flags may sit anywhere */

@@ -10,7 +10,7 @@ ifeq ($(shell uname -s),Darwin)
 ARCH    ?= -arch x86_64
 endif
 ARCH    ?=
-SDL_CFLAGS := $(shell sdl2-config --cflags)
+SDL_CFLAGS := $(shell sdl2-config --cflags) -I$(shell sdl2-config --prefix)/include
 SDL_LIBS   := $(shell sdl2-config --libs)
 
 # `make ROUND=1`: the round 466 px bowl (the Waveshare 1.75C's world) as
@@ -34,7 +34,7 @@ CFLAGS  := $(ROUNDF) -O2 -std=c11 $(ARCH) -I. -I../common -I../common/llm -DLV_C
            -Wall -Wextra -Wno-unused-parameter -MMD -MP
 LDFLAGS := $(ARCH) $(SDL_LIBS) -lm
 
-APP_SRCS  := main.c advisor_llm.c persist_port_sim.c net_port_sim.c ../common/tank.c ../common/update.c ../common/advisor.c ../common/render.c ../common/icons.c ../common/progression.c ../common/setup.c ../common/audio.c ../common/notice.c ../common/sounds.c ../common/battery.c ../common/llm/q4_model.c ../common/llm/word_tok.c ../common/llm/advisor_core.c
+APP_SRCS  := ../common/companion.c main.c advisor_llm.c persist_port_sim.c net_port_sim.c ../common/tank.c ../common/update.c ../common/advisor.c ../common/render.c ../common/icons.c ../common/progression.c ../common/setup.c ../common/audio.c ../common/notice.c ../common/sounds.c ../common/battery.c ../common/llm/q4_model.c ../common/llm/word_tok.c ../common/llm/advisor_core.c
 
 LVGL_SRCS := $(shell find lvgl/src -name '*.c')
 OBJS      := $(patsubst %.c,$(BUILD)/%.o,$(filter-out ../common/%,$(APP_SRCS)) $(LVGL_SRCS)) $(patsubst ../common/%.c,$(BUILD)/common/%.o,$(filter ../common/%,$(APP_SRCS)))

@@ -23,6 +23,7 @@
 #include "board_pins.h"
 #include "tank.h"
 #include "render.h"
+#include "companion.h"
 #include "setup.h"
 #include "notice.h"
 #include "audio_port.h"
@@ -453,7 +454,8 @@ void touch_port_poll(tank_t *t) {
     /* portrait panel (px,py) -> landscape tank (tx,ty): tx = TANK_W-1-py, ty = px;
      * flipped screen: mirror both, so downstream gestures live in displayed space */
     float tx = s_lx, ty = s_ly;
-    if (touched) map_touch(x[0], y[0], &tx, &ty);           /* calibrated (above); the release keeps the last position */
+    if (touched) map_touch(x[0], y[0], &tx, &ty);
+    if (!setup_active() && !s_cf && !s_ms && !s_set && !s_shop && !s_upd && !s_bat && s_sel < 0 && companion_touch(tx, ty, touched)) { s_down = false; return; }           /* calibrated (above); the release keeps the last position */
     if (touched && !s_down) {
         audio_port_prewarm();                   /* the release's cue plays warm */
         s_press_us = now; s_px = tx; s_py = ty;

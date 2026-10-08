@@ -18,6 +18,7 @@
 #include "tank.h"
 #include "advisor.h"
 #include "render.h"
+#include "companion.h"
 #include "psram_plan.h"
 #include "display_port.h"
 #include "advisor_llm_esp.h"
@@ -652,7 +653,7 @@ static void tank_task(void *arg) {
         { static int64_t last_bat; if (now - last_bat > 5LL * 60 * 1000000) {   /* battery log: awake sample every 5 min */
             batlog_add(battery_pct(), battery_port_vbat_mv(), display_port_brightness(), false, last_bat ? "" : "boot"); last_bat = now; } }
         int64_t pf_tick = esp_timer_get_time(); polls_us += pf_tick - now;
-        tank.hold_light = setup_active() || touch_port_confirm_up();   /* no lights-out mid-name */
+        tank.hold_light = setup_active() || touch_port_confirm_up() || companion_visible();   /* no lights-out mid-name */
         tank.ui_cover = tank.hold_light || touch_port_milestones() || touch_port_settings() || touch_port_updates() || touch_port_shop() || touch_port_battery();   /* a fry's spawning waits */
         tank_tick(&tank, dt, llm_ok ? advisor_llm_esp : advisor_rules);
         progression_tick(&tank, dt);
@@ -724,6 +725,8 @@ static void tank_task(void *arg) {
                 render_setup(&tank, fb[cur], TANK_W, tank.clock);
             if (touch_port_confirm_up())         /* reset prompt: over everything, fish still swim */
                 render_confirm_reset(fb[cur], TANK_W, touch_port_confirm_frac());
+            if (setup_active() || touch_port_confirm_up()) companion_show(false);
+            companion_render(fb[cur], TANK_W, now, !setup_active() && !tank.ui_cover && sel < 0);
             int64_t t1 = esp_timer_get_time();
             if (sel >= 0) { card_us += t1 - tc; card_frames++; }
             /* the next frame's scene prefetch starts BEFORE this frame's flush (2026-10-03): the copy

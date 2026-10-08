@@ -91,7 +91,7 @@ static int stage_of(const char *s) {
     return -1;
 }
 static bool s_ok;
-static char s_line[96];
+static char s_line[1024];
 static int  s_len;
 
 static int find_fish(const tank_t *t, const char *s) {
@@ -218,6 +218,27 @@ static void wifi_set_raw(const char *args) {
 }
 static void imp_dump(void);
 static void run(tank_t *t, char *line) {
+    if (!strncmp(line, "monitor ", 8)) {
+        const char *payload = line + 8;
+        if (!strcmp(payload, "show")) { companion_show(true); ESP_LOGI(TAG,"MONITOR OK show"); return; }
+        if (!strcmp(payload, "hide")) { companion_show(false); ESP_LOGI(TAG,"MONITOR OK hide"); return; }
+        cJSON *root = cJSON_Parse(payload);
+        if (!cJSON_IsObject(root)) { cJSON_Delete(root); ESP_LOGW(TAG,"MONITOR ERROR json"); return; }
+        companion_card_t c = {0};
+#define MON_STR(field) do { cJSON *v=cJSON_GetObjectItemCaseSensitive(root,#field); if(cJSON_IsString(v)) snprintf(c.field,sizeof c.field,"%s",v->valuestring); } while(0)
+        MON_STR(name); MON_STR(match); MON_STR(title); MON_STR(clock); MON_STR(updated); MON_STR(extra);
+#undef MON_STR
+        c.active = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"active"));
+        c.demo = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"demo"));
+        c.stale = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"stale"));
+        cJSON *v=cJSON_GetObjectItemCaseSensitive(root,"yards"); c.has_yards=cJSON_IsNumber(v); if(c.has_yards) c.yards=v->valuedouble;
+        v=cJSON_GetObjectItemCaseSensitive(root,"average"); c.has_average=cJSON_IsNumber(v); if(c.has_average) c.average=v->valuedouble;
+        v=cJSON_GetObjectItemCaseSensitive(root,"state");
+        if(cJSON_IsString(v)) c.state=!strcmp(v->valuestring,"in")?1:!strcmp(v->valuestring,"post")?2:0;
+        companion_set(&c,esp_timer_get_time()); cJSON_Delete(root);
+        ESP_LOGI(TAG,"MONITOR OK card"); return;
+    }
+
     if (!strncmp(line, "wifi set ", 9)) { wifi_set_raw(line + 9); return; }
     if (!strcmp(line, "improv")) { imp_dump(); return; }     /* the handshake's flight recorder */
     if (!strncmp(line, "ota tap ", 8)) {                     /* update mode, hands-free: a tap at (x, y) in tank coordinates */
@@ -789,6 +810,7 @@ void director_init(void) {
 #if CONFIG_SOC_USB_SERIAL_JTAG_SUPPORTED
     if (s_ok) return;                                        /* update mode brought it up already */
     usb_serial_jtag_driver_config_t cfg = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
+    cfg.rx_buffer_size = 2048; /* bounded monitor JSON can exceed a single USB packet */
     s_ok = usb_serial_jtag_driver_install(&cfg) == ESP_OK;
     ESP_LOGI(TAG, "%s", s_ok ? "console ready (type help)" : "USB serial driver failed: console off");
     if (nvs_has("bk")) ESP_LOGW(TAG, "a STAGED tank is up: the real tank is parked (restore brings it back)");
