@@ -116,8 +116,10 @@ snapshots and does not independently fetch internet data.
 
 The companion panel includes URGENCIAS. It shows today's registered-patient
 count and internamientos from the same `build_urgency_summary_data` used by
-Susi's reports. Voluntary discharges come from the official Altas source,
-using `count_altas_range`. Nursing/attention delays use Registro column R
+Susi's reports. Voluntary discharges come from today's live Registro destination (AV), using
+the same date window and encounter grain as the other cards. The independent
+Altas sheet can contain malformed dates and is not required for this count.
+The finalized AR Anual workbook is never read or modified by this adapter. Nursing/attention delays use Registro column R
 (`delays_over_three`); IC delays use Interconsultas' own delay duration.
 Nursing requires strictly more than three hours; IC requires strictly more
 than one hour. Exactly 3:00 (nursing) or 1:00 (IC) is excluded.

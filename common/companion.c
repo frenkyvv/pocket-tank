@@ -160,7 +160,7 @@ void companion_render(uint16_t *fb, int s, int64_t now, bool chip) {
         text(fb,s,36,225,4,white,card.ux_voluntary[0]?card.ux_voluntary:"--");
         snprintf(line,sizeof line,"%s / %s",card.ux_nursing_delay[0]?card.ux_nursing_delay:"--",card.ux_ic_delay[0]?card.ux_ic_delay:"--");
         text(fb,s,242,215,1,gray,"ENFERMERIA MAS DE 3 H");text(fb,s,242,227,1,gray,"IC MAS DE 1 H");text(fb,s,242,237,3,white,line);text(fb,s,242,268,1,gray,"ENFERMERIA / IC");
-        text(fb,s,24,299,1,gray,"FUENTES: REGISTRO, ALTAS, IC");
+        text(fb,s,24,299,1,gray,"FUENTES: REGISTRO / IC");
         render_button(fb,s,24,320,194,38,0x183b32,green,"MEDICOS",2);
         render_button(fb,s,230,320,194,38,0x183b32,green,"ENFERMERIA",2);
         return;

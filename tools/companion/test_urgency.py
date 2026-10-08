@@ -24,3 +24,16 @@ class UrgencyTests(unittest.TestCase):
         p.update(fields(data,now));p.update(notice_message='M'*240,notice_title='T'*32,notice_source='SUSI',notice_id='a'*32,voice_reply_id='b'*32)
         p.update(weather_desc='TORMENTA CON GRANIZO',weather_updated='10/08 16:00',eth_usd='$999,999,999.99',eth_mxn='$999,999,999.99')
         self.assertLess(len(bridge.wifi_packet(p,'a'*64,1234567890123)),6144)
+
+    def test_live_registry_av_date_and_destination(self):
+        from urgency_source import count_registry_voluntary
+        today=datetime.date(2026,10,8)
+        def row(day,destination,record='TEST'):
+            value=['']*19;value[0]=day;value[2]=record;value[14]=destination;return value
+        rows=[row('08/10/2026','AV'),row('08/10/2026',' av '),row('08/10/2026','AVDOM'),
+              row('07/10/2026','AV'),row('08/10/20261','AV'),row('08/10/2026','DOM'),
+              row('08/10/2026','NAVE'),row('08/10/2026','AV','')]
+        def parse(value):
+            try:return datetime.datetime.strptime(value,'%d/%m/%Y').date()
+            except ValueError:return None
+        self.assertEqual(count_registry_voluntary(rows,today,parse),3)
