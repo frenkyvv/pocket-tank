@@ -11,6 +11,7 @@ typedef struct {
 void companion_set(const companion_card_t *card, int64_t now_us);
 void companion_show(bool visible);
 bool companion_visible(void);
+const companion_card_t *companion_card(void);
 bool companion_touch(float x, float y, bool down);
 void companion_render(uint16_t *fb, int stride, int64_t now_us, bool chip);
 #endif

@@ -28,6 +28,8 @@ def payload_for(card, stale=False, demo=False):
 def load_cards(source):
     try:
         data = json.loads(source.read_text())
+        if not isinstance(data, dict):
+            return [], True
         cards = [row['last_card'] for row in data.values() if isinstance(row, dict) and isinstance(row.get('last_card'), dict)]
         # Bob saves last_card only after a successful Telegram update. Older data
         # is explicitly labelled instead of claiming the current game is live.

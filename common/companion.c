@@ -9,6 +9,7 @@ static int64_t received;
 void companion_set(const companion_card_t *value, int64_t now) { card = *value; received = now; }
 void companion_show(bool value) { visible = value; }
 bool companion_visible(void) { return visible; }
+const companion_card_t *companion_card(void) { return &card; }
 bool companion_touch(float x, float y, bool down) {
     if (down && !pressed) {
         captured = visible || (x >= PAGE_X + 350 && y >= PAGE_Y && y < PAGE_Y + 42);
@@ -35,6 +36,8 @@ void companion_render(uint16_t *fb, int s, int64_t now, bool chip) {
         text(fb,s,24,110,2,white,"ESPERANDO SEGUIMIENTO");
         text(fb,s,24,160,2,gray,"PIDE A BOB: SIGUE A...");
         text(fb,s,24,210,2,gray,"LA PECERA SIGUE ACTIVA");
+        if (received && now-received > 30000000) text(fb,s,24,270,2,red,"USB SIN DATOS");
+        else if(card.stale) text(fb,s,24,270,2,red,"BOB SIN ACTUALIZAR");
         return;
     }
     bool stale = card.stale || !received || now-received > 30000000;
