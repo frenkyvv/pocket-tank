@@ -4063,6 +4063,24 @@ static int selftest_card(const char *prefix) {
 }
 
 int main(int argc, char **argv) {
+    if(argc>3 && !strcmp(argv[1],"--urgency-preview")) {
+        static uint16_t preview[TANK_W*TANK_H];companion_card_t c={0};
+        FILE *in=fopen(argv[3],"r");if(!in)return 1;
+        char *values[]={c.ux_day,c.ux_updated,c.ux_total,c.ux_admissions,c.ux_voluntary,c.ux_nursing_delay,c.ux_ic_delay,c.ux_doctors,c.ux_nurses};
+        size_t sizes[]={sizeof c.ux_day,sizeof c.ux_updated,sizeof c.ux_total,sizeof c.ux_admissions,sizeof c.ux_voluntary,sizeof c.ux_nursing_delay,sizeof c.ux_ic_delay,sizeof c.ux_doctors,sizeof c.ux_nurses};
+        char line[1024];for(int i=0;i<9;i++){if(!fgets(line,sizeof line,in)){fclose(in);return 2;}line[strcspn(line,"\r\n")]=0;snprintf(values[i],sizes[i],"%s",line);}fclose(in);
+        companion_set(&c,1000000);companion_show(true);
+        companion_touch(PAGE_X+180,PAGE_Y+282,true);companion_touch(PAGE_X+180,PAGE_Y+282,false);
+        companion_render(preview,TANK_W,1000001,false);write_ppm(argv[2],preview);
+        companion_touch(PAGE_X+100,PAGE_Y+340,true);companion_touch(PAGE_X+100,PAGE_Y+340,false);
+        companion_render(preview,TANK_W,1000002,false);char path[512];snprintf(path,sizeof path,"%s-doctors.ppm",argv[2]);write_ppm(path,preview);
+        companion_touch(PAGE_X+390,PAGE_Y+20,true);companion_touch(PAGE_X+390,PAGE_Y+20,false);
+        companion_touch(PAGE_X+300,PAGE_Y+340,true);companion_touch(PAGE_X+300,PAGE_Y+340,false);
+        companion_render(preview,TANK_W,1000003,false);snprintf(path,sizeof path,"%s-nurses.ppm",argv[2]);write_ppm(path,preview);
+        companion_touch(PAGE_X+300,PAGE_Y+340,true);companion_touch(PAGE_X+300,PAGE_Y+340,false);
+        companion_render(preview,TANK_W,1000004,false);snprintf(path,sizeof path,"%s-nurses-next.ppm",argv[2]);write_ppm(path,preview);
+        printf("urgency: real source preview and chart navigation passed\n");return 0;
+    }
     if(argc>1 && !strcmp(argv[1],"--companion-voice-preview")) {
         static uint16_t preview[TANK_W*TANK_H];companion_card_t c={.voice_ready=true};
         companion_set(&c,1000000);companion_show(false);
@@ -4129,7 +4147,7 @@ int main(int argc, char **argv) {
         companion_render(preview,TANK_W,1000002,false);
         if(argc>2) {char path[512];snprintf(path,sizeof path,"%s-weather.ppm",argv[2]);write_ppm(path,preview);}
         companion_touch(PAGE_X+390,PAGE_Y+20,true);companion_touch(PAGE_X+390,PAGE_Y+20,false);
-        companion_touch(PAGE_X+200,PAGE_Y+310,true);companion_touch(PAGE_X+200,PAGE_Y+310,false);
+        companion_touch(PAGE_X+200,PAGE_Y+338,true);companion_touch(PAGE_X+200,PAGE_Y+338,false);
         companion_render(preview,TANK_W,1000003,false);
         if(argc>2) {char path[512];snprintf(path,sizeof path,"%s-eth.ppm",argv[2]);write_ppm(path,preview);}
         printf("companion: preview + navigation passed\n"); return 0;

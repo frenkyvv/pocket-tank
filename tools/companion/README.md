@@ -111,3 +111,28 @@ ETH older than ten minutes, or a missing device heartbeat also show stale.
 The receiver accepts up to 2303 bytes including a simultaneous notification.
 The Mac and its bridge must remain running; the ESP32 receives signed LAN
 snapshots and does not independently fetch internet data.
+
+## Urgencias today
+
+The companion panel includes URGENCIAS. It shows today's registered-patient
+count and internamientos from the same `build_urgency_summary_data` used by
+Susi's reports. Voluntary discharges come from the official Altas source,
+using `count_altas_range`. Nursing/attention delays use Registro column R
+(`delays_over_three`); IC delays use Interconsultas' own delay duration.
+Both require strictly more than three hours; exactly 3:00 is excluded.
+
+A separate daemon worker invokes `urgency_source.py` in Susi's existing Python
+environment every 120 seconds. This adapter loads only report access settings,
+uses read-only source calls and existing report functions, and outputs only
+aggregates plus staff counters. It does not restart Susi, trigger monitor
+corrections, write patient records, or send messages. Updates reflect source
+changes on the next poll, including changes made by Susi's live monitor.
+
+The display labels the report date and check time. Failed or old scans retain
+last known values with stale status; an unavailable independent source is `--`,
+not zero. At the Monterrey date rollover yesterday's metrics are cleared.
+Charts show patients per registered staff member, so unassigned patients do
+not enter staff counts. Six horizontal bars appear per page; Previous/Next
+pages cover up to 24 series. Larger lists retain the first 23 and combine
+remaining counts into an explicit OTROS bar. Staff labels are shortened for
+the device; no patient names or diagnoses are sent by this adapter.

@@ -5,6 +5,7 @@
 #include <math.h>
 static companion_card_t card;
 static bool visible, pressed, captured;
+static int chart_page;
 static int panel_page; /* 0 home, 1 tracking, 2 notices, 3 weather, 4 ETH */
 static int64_t received, notice_started;
 static companion_card_t notice;
@@ -36,7 +37,7 @@ bool companion_touch(float x, float y, bool down) {
         }
         pressed=down;captured=down;return true;
     }
-    if(visible && panel_page==0 && !notice_up && down && !pressed && x>=PAGE_X+24 && x<PAGE_X+424 && y>=PAGE_Y+176 && y<PAGE_Y+220) {
+    if(visible && panel_page==0 && !notice_up && down && !pressed && x>=PAGE_X+24 && x<PAGE_X+424 && y>=PAGE_Y+164 && y<PAGE_Y+204) {
         if(card.voice_ready && received && received>0)voice_action=1;
         else companion_voice_set(4);
         pressed=true;captured=true;return true;
@@ -54,11 +55,16 @@ bool companion_touch(float x, float y, bool down) {
         captured=visible || launcher;
         if(!visible && launcher) {visible=true;panel_page=0;}
         else if(visible && x>=PAGE_X+350 && y<PAGE_Y+42) {
-            if(panel_page)panel_page=0;else visible=false;
+            if(panel_page==6 || panel_page==7)panel_page=5;else if(panel_page)panel_page=0;else visible=false;
         } else if(visible && panel_page==0 && x>=PAGE_X+24 && x<PAGE_X+424) {
             if(x>=PAGE_X+240 && y>=PAGE_Y+50 && y<PAGE_Y+160)panel_page=3;
-            else if(y>=PAGE_Y+232 && y<PAGE_Y+276)panel_page=x<PAGE_X+224?1:2;
-            else if(y>=PAGE_Y+288 && y<PAGE_Y+344)panel_page=4;
+            else if(y>=PAGE_Y+212 && y<PAGE_Y+252)panel_page=x<PAGE_X+224?1:2;
+            else if(y>=PAGE_Y+264 && y<PAGE_Y+304)panel_page=5;
+            else if(y>=PAGE_Y+316 && y<PAGE_Y+360)panel_page=4;
+        } else if(visible && panel_page==5 && y>=PAGE_Y+316) {
+            panel_page=x<PAGE_X+224?6:7;chart_page=0;
+        } else if(visible && (panel_page==6 || panel_page==7) && y>=PAGE_Y+316) {
+            chart_page+=x<PAGE_X+224?-1:1;if(chart_page<0)chart_page=0;
         }
     }
     bool consume = captured || visible;
@@ -127,15 +133,65 @@ void companion_render(uint16_t *fb, int s, int64_t now, bool chip) {
         text(fb,s,254,88,3,white,card.weather_temp[0]?card.weather_temp:"-- C");
         text(fb,s,254,132,1,card.weather_stale || now-received>30000000?red:gray,card.weather_stale || now-received>30000000?"SIN ACTUALIZAR":"TOCA PARA VER MAS");
         text(fb,s,24,149,1,received && now-received<30000000?green:red,received && now-received<30000000?"CONECTADO POR WIFI":"ESPERANDO CONEXION");
-        render_button(fb,s,24,176,400,44,0x183b32,green,"HABLAR CON SUSI",2);
-        render_button(fb,s,24,232,194,44,0x182c34,0x405260,"SEGUIMIENTO",2);
-        render_button(fb,s,230,232,194,44,0x182c34,0x405260,"AVISOS",2);
-        render_rect(fb,s,24,288,400,56,0x182c34);
-        text(fb,s,36,298,2,green,"ETH");
-        text(fb,s,102,298,2,white,card.eth_usd[0]?card.eth_usd:"SIN DATOS");
-        text(fb,s,330,301,1,gray,"USD / MAS");
+        render_button(fb,s,24,164,400,40,0x183b32,green,"HABLAR CON SUSI",2);
+        render_button(fb,s,24,212,194,40,0x182c34,0x405260,"SEGUIMIENTO",2);
+        render_button(fb,s,230,212,194,40,0x182c34,0x405260,"AVISOS",2);
+        render_button(fb,s,24,264,400,40,0x183b32,green,"URGENCIAS",2);
+        render_rect(fb,s,24,316,400,42,0x182c34);
+        text(fb,s,36,321,2,green,"ETH");
+        text(fb,s,102,321,2,white,card.eth_usd[0]?card.eth_usd:"SIN DATOS");
+        text(fb,s,330,324,1,gray,"USD / MAS");
         char stamp[40];snprintf(stamp,sizeof stamp,"%s %s",card.eth_stale || now-received>30000000?"SIN ACTUALIZAR":"ACTUALIZADO",card.eth_updated);
-        text(fb,s,36,326,1,card.eth_stale || now-received>30000000?red:gray,stamp);
+        text(fb,s,36,346,1,card.eth_stale || now-received>30000000?red:gray,stamp);
+        return;
+    }
+    if(panel_page==5) {
+        text(fb,s,24,18,2,green,"URGENCIAS / HOY");
+        char line[80];snprintf(line,sizeof line,"%s / ACTUALIZADO %s",card.ux_day,card.ux_updated);
+        text(fb,s,24,51,1,gray,line);
+        bool stale=card.ux_stale || !received || now-received>30000000;
+        text(fb,s,24,69,1,stale?red:green,stale?"DATOS SIN ACTUALIZAR":"ACTUALIZACION AUTOMATICA");
+        render_rect(fb,s,24,94,194,82,0x182c34);render_rect(fb,s,230,94,194,82,0x182c34);
+        text(fb,s,36,105,1,gray,"PACIENTES ATENDIDOS");text(fb,s,242,105,1,gray,"INTERNAMIENTOS");
+        text(fb,s,36,131,4,white,card.ux_total[0]?card.ux_total:"--");
+        text(fb,s,242,131,4,white,card.ux_admissions[0]?card.ux_admissions:"--");
+        render_rect(fb,s,24,188,194,96,0x182c34);render_rect(fb,s,230,188,194,96,0x182c34);
+        text(fb,s,36,199,1,gray,"ALTAS VOLUNTARIAS");text(fb,s,242,199,1,gray,"TARDANZAS");
+        text(fb,s,36,225,4,white,card.ux_voluntary[0]?card.ux_voluntary:"--");
+        snprintf(line,sizeof line,"%s / %s",card.ux_nursing_delay[0]?card.ux_nursing_delay:"--",card.ux_ic_delay[0]?card.ux_ic_delay:"--");
+        text(fb,s,242,216,1,gray,"MAS DE 3 H");text(fb,s,242,237,3,white,line);text(fb,s,242,268,1,gray,"ENFERMERIA / IC");
+        text(fb,s,24,299,1,gray,"FUENTES: REGISTRO, ALTAS, IC");
+        render_button(fb,s,24,320,194,38,0x183b32,green,"MEDICOS",2);
+        render_button(fb,s,230,320,194,38,0x183b32,green,"ENFERMERIA",2);
+        return;
+    }
+    if(panel_page==6 || panel_page==7) {
+        text(fb,s,24,18,2,green,panel_page==6?"MEDICOS / HOY":"ENFERMERIA / HOY");
+        char buffer[721];snprintf(buffer,sizeof buffer,"%s",panel_page==6?card.ux_doctors:card.ux_nurses);
+        char names[24][19];int counts[24],n=0,maximum=1,total=0;
+        char *entry=buffer;
+        while(*entry && n<24) {
+            char *end=strchr(entry,';');if(end)*end=0;
+            char *split=strchr(entry,'|');
+            if(split) {*split=0;snprintf(names[n],sizeof names[n],"%.18s",entry);int count=0;sscanf(split+1,"%d",&count);counts[n]=count>0?count:0;if(counts[n]>maximum)maximum=counts[n];total+=counts[n];n++;}
+            if(!end)break;
+            entry=end+1;
+        }
+        int pages=(n+5)/6;if(pages<1)pages=1;if(chart_page>=pages)chart_page=pages-1;
+        char label[80];snprintf(label,sizeof label,"%s / %d PACIENTES CON ASIGNACION",card.ux_day,total);text(fb,s,24,52,1,gray,label);
+        bool stale=card.ux_stale || !received || now-received>30000000;
+        text(fb,s,24,73,1,stale?red:green,stale?"DATOS SIN ACTUALIZAR":"PACIENTES POR PERSONAL REGISTRADO");
+        if(!n)text(fb,s,24,150,2,gray,card.ux_total[0]?"SIN ASIGNACIONES":"ESPERANDO DATOS");
+        for(int row=0;row<6 && chart_page*6+row<n;row++) {
+            int i=chart_page*6+row,y=108+row*31;
+            char short_name[12];snprintf(short_name,sizeof short_name,"%.11s",names[i]);
+            text(fb,s,24,y+1,2,white,short_name);render_rect(fb,s,168,y,204,16,0x182c34);
+            int width=(int)(204.0*counts[i]/maximum);if(width)render_rect(fb,s,168,y,width,16,green);
+            snprintf(label,sizeof label,"%d",counts[i]);text(fb,s,384,y+1,counts[i]>999?1:2,white,label);
+        }
+        snprintf(label,sizeof label,"PAGINA %d / %d / ACT. %s",chart_page+1,pages,card.ux_updated);text(fb,s,24,299,1,gray,label);
+        render_button(fb,s,24,320,194,38,0x182c34,0x405260,"ANTERIOR",2);
+        render_button(fb,s,230,320,194,38,0x182c34,0x405260,"SIGUIENTE",2);
         return;
     }
     if(panel_page==3 || panel_page==4) {
