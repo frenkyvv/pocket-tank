@@ -133,6 +133,7 @@ static bool radio_up(void) {
     if (esp_event_loop_create_default() != ESP_OK) return false;
     s_netif = esp_netif_create_default_wifi_sta();
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    if(s_monitor) {cfg.static_rx_buf_num=4;cfg.dynamic_rx_buf_num=8;cfg.dynamic_tx_buf_num=8;cfg.rx_ba_win=4;}
     if (esp_wifi_init(&cfg) != ESP_OK) return false;
     esp_wifi_set_storage(WIFI_STORAGE_RAM);
     esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, on_wifi, NULL);
@@ -149,7 +150,8 @@ bool net_port_monitor_start(void) {
     char ssid[NET_SSID_MAX+1]={0},pass[NET_PASS_MAX+1]={0};
     if(!net_port_creds_get(ssid,pass))return false;
     if(!s_ev)s_ev=xEventGroupCreate();
-    if(!s_ev||!radio_up())return false;
+    s_monitor=true;
+    if(!s_ev||!radio_up()){s_monitor=false;return false;}
     wifi_config_t wc={0};memcpy(wc.sta.ssid,ssid,sizeof wc.sta.ssid);memcpy(wc.sta.password,pass,sizeof wc.sta.password);
     wc.sta.pmf_cfg.capable=true;
     if(esp_wifi_set_config(WIFI_IF_STA,&wc)!=ESP_OK)return false;

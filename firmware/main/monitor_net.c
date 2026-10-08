@@ -8,6 +8,8 @@
 #include "lwip/sockets.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/idf_additions.h"
+#include "esp_heap_caps.h"
 #include "freertos/queue.h"
 #include <string.h>
 #include <math.h>
@@ -45,7 +47,7 @@ bool monitor_key_set(const char *value) {
 static void worker(void *arg) {
     int fd=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
     struct sockaddr_in address={.sin_family=AF_INET,.sin_port=htons(19432),.sin_addr.s_addr=htonl(INADDR_ANY)};
-    if(fd<0||bind(fd,(struct sockaddr *)&address,sizeof address)<0){ESP_LOGE(TAG,"UDP unavailable");if(fd>=0)close(fd);vTaskDelete(NULL);return;}
+    if(fd<0||bind(fd,(struct sockaddr *)&address,sizeof address)<0){ESP_LOGE(TAG,"UDP unavailable");if(fd>=0)close(fd);vTaskDeleteWithCaps(NULL);return;}
     char buf[1536];double last_seq=0;
     ESP_LOGI(TAG,"WiFi receiver ready UDP 19432");
     for(;;){
@@ -56,6 +58,7 @@ static void worker(void *arg) {
         if(!cJSON_IsString(body)||!cJSON_IsString(sig)||strlen(sig->valuestring)!=64){cJSON_Delete(packet);continue;}
         unsigned char digest[32];char hex[65];
         int result=mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),(unsigned char *)key,64,(unsigned char *)body->valuestring,strlen(body->valuestring),digest);
+        if(result){cJSON_Delete(packet);continue;}
         for(int i=0;i<32;i++)snprintf(hex+i*2,3,"%02x",digest[i]);
         unsigned diff=0;for(int i=0;i<64;i++)diff|=(unsigned char)hex[i]^(unsigned char)sig->valuestring[i];
         if(result||diff){cJSON_Delete(packet);continue;}
@@ -76,7 +79,7 @@ void monitor_net_start(void) {
     esp_err_t e=nvs_get_str(h,"key",key,&n);nvs_close(h);if(e!=ESP_OK||strlen(key)!=64)return;
     pending=xQueueCreate(1,sizeof(companion_card_t));
     if(!pending||!net_port_monitor_start()){ESP_LOGW(TAG,"WiFi monitor not started; USB still available");return;}
-    if(xTaskCreate(worker,"monitor-rx",6144,NULL,3,NULL)!=pdPASS)ESP_LOGE(TAG,"WiFi receiver task allocation failed");
+    if(xTaskCreateWithCaps(worker,"monitor-rx",6144,NULL,3,NULL,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)!=pdPASS)ESP_LOGE(TAG,"WiFi receiver task allocation failed");
 }
 void monitor_net_poll(void) {companion_card_t c;if(pending&&xQueueReceive(pending,&c,0)==pdTRUE){companion_set(&c,esp_timer_get_time());if(c.open_view)companion_show(true);}}
 void monitor_net_status(void) {ESP_LOGI(TAG,"WiFi cards received: %u",received);}
