@@ -200,7 +200,7 @@ bool audio_port_init(i2c_master_bus_handle_t bus) {
     i2s_std_config_t std = {
         .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(SND_RATE),              /* MCLK = 256 fs = 4.096 MHz */
         .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
-        .gpio_cfg = { .mclk = PIN_I2S_MCLK, .bclk = PIN_I2S_BCLK, .ws = PIN_I2S_WS, .dout = PIN_I2S_DOUT, .din = (board_is_watch()||board_is_round())?I2S_GPIO_UNUSED:15,
+        .gpio_cfg = { .mclk = PIN_I2S_MCLK, .bclk = PIN_I2S_BCLK, .ws = PIN_I2S_WS, .dout = PIN_I2S_DOUT, .din = (board_is_watch()||board_is_round())?I2S_GPIO_UNUSED:10,
                       .invert_flags = { 0 } },
     };
     if (i2s_channel_init_std_mode(s_tx, &std) != ESP_OK) { ESP_LOGE(TAG, "I2S std init failed"); return false; }
