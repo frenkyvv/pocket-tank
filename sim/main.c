@@ -4111,6 +4111,11 @@ int main(int argc, char **argv) {
         snprintf(demo.extra,sizeof demo.extra,"DATOS FICTICIOS PARA VERIFICACION");
         snprintf(demo.updated,sizeof demo.updated,"PRUEBA");
         snprintf(demo.local_time,sizeof demo.local_time,"16:25");
+        snprintf(demo.weather_temp,sizeof demo.weather_temp,"29 C");
+        snprintf(demo.weather_desc,sizeof demo.weather_desc,"MAYORMENTE DESPEJADO");
+        snprintf(demo.eth_usd,sizeof demo.eth_usd,"$2,440.20");
+        snprintf(demo.eth_mxn,sizeof demo.eth_mxn,"$44,922.82");
+        snprintf(demo.eth_updated,sizeof demo.eth_updated,"10/08 16:25");
         companion_set(&demo,1000000); companion_show(true);
         companion_render(preview,TANK_W,1000001,false);
         write_ppm(argc>2?argv[2]:"companion.ppm",preview);
@@ -4119,6 +4124,14 @@ int main(int argc, char **argv) {
         companion_touch(PAGE_X+414,PAGE_Y+334,true);
         if (!companion_visible()) return 3;
         companion_touch(PAGE_X+390,PAGE_Y+20,false);
+        companion_touch(PAGE_X+390,PAGE_Y+20,false);
+        companion_touch(PAGE_X+300,PAGE_Y+100,true);companion_touch(PAGE_X+300,PAGE_Y+100,false);
+        companion_render(preview,TANK_W,1000002,false);
+        if(argc>2) {char path[512];snprintf(path,sizeof path,"%s-weather.ppm",argv[2]);write_ppm(path,preview);}
+        companion_touch(PAGE_X+390,PAGE_Y+20,true);companion_touch(PAGE_X+390,PAGE_Y+20,false);
+        companion_touch(PAGE_X+200,PAGE_Y+310,true);companion_touch(PAGE_X+200,PAGE_Y+310,false);
+        companion_render(preview,TANK_W,1000003,false);
+        if(argc>2) {char path[512];snprintf(path,sizeof path,"%s-eth.ppm",argv[2]);write_ppm(path,preview);}
         printf("companion: preview + navigation passed\n"); return 0;
     }
 

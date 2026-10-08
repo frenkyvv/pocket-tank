@@ -70,8 +70,7 @@ notice expiry, duplicate suppression and touch behavior checks.
 
 ## Push-to-talk with Susi
 
-The rectangular Waveshare 1.8 board offers HABLAR CON SUSI on the aquarium
-and monitor. Tap, speak, then tap ENVIAR; capture stops automatically after
+The rectangular Waveshare 1.8 board offers HABLAR CON SUSI inside the companion panel. Tap, speak, then tap ENVIAR; capture stops automatically after
 12 seconds. PECERA cancels recording. The existing codec player owns both
 I2S channels; speaker cues are paused while the analog ES8311 microphone
 records mono 16-bit PCM at 16 kHz into PSRAM. No continuous listening occurs.
@@ -94,3 +93,21 @@ Pinokio, Susi, the Mac bridge and the Mac itself must remain running.
 Voice touch/cancellation check: `sim/fishsim --companion-voice-preview output.ppm`.
 Hardware reference: https://files.waveshare.com/wiki/ESP32-S3-Touch-AMOLED-1.8/ESP32-S3-Touch-AMOLED-1.8.pdf
 ES8311 microphone reference: https://github.com/espressif/esp-bsp/blob/master/components/es8311/es8311.c
+
+
+## Weather and ETH
+
+The aquarium has one circular launcher at the lower right. The panel shows
+Monterrey time, a tappable temperature card, voice, tracking, notices, and ETH.
+Weather detail shows modeled temperature, apparent temperature and humidity
+from Open-Meteo (25.6866, -100.3161). ETH detail shows Coinbase spot quotes
+for one ETH in USD and MXN. No API keys or trading credentials are required.
+
+Ambient fetches run in a daemon thread on the Mac, leaving UDP notifications
+and voice responsive. Weather polls every ten minutes; ETH every two minutes.
+Each card carries its source and local data/consultation time. Failed fetches
+retain the last valid values with a stale flag; weather older than 30 minutes,
+ETH older than ten minutes, or a missing device heartbeat also show stale.
+The receiver accepts up to 2303 bytes including a simultaneous notification.
+The Mac and its bridge must remain running; the ESP32 receives signed LAN
+snapshots and does not independently fetch internet data.

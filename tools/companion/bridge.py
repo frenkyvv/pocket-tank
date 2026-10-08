@@ -83,6 +83,8 @@ def wifi_main(args):
         voice_server=start_voice(key); print('Voz de Susi disponible en la red local',flush=True)
     except OSError:
         voice_server=None; print('No se pudo abrir el receptor de voz; avisos disponibles',flush=True)
+    from ambient import Ambient
+    ambient = Ambient().start()
     started = time.monotonic()
     notifications = NotificationQueue()
     last_ack = 0
@@ -102,6 +104,7 @@ def wifi_main(args):
             payload['show'] = show_pending
             payload['voice_ready'] = voice_server is not None
             payload['local_time'] = datetime.now(ZoneInfo('America/Monterrey')).strftime('%H:%M')
+            payload.update(ambient.payload())
             event=notifications.next()
             if event:
                 payload.update(notice_id=event['id'],notice_source=display_text(event['source'],16),

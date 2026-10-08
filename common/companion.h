@@ -12,6 +12,9 @@ typedef struct {
     bool voice_ready;
     char voice_reply_id[33];
     char local_time[6];
+    char weather_temp[9],weather_desc[26],weather_feels[9],weather_humidity[6],weather_updated[12];
+    char eth_usd[20],eth_mxn[20],eth_updated[12];
+    bool weather_stale,eth_stale;
     int state; /* 0 waiting, 1 live, 2 final */
 } companion_card_t;
 void companion_set(const companion_card_t *card, int64_t now_us);

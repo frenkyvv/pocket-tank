@@ -30,7 +30,8 @@ bool monitor_decode(const char *json, companion_card_t *c) {
     if(!cJSON_IsObject(root)||!cJSON_IsBool(cJSON_GetObjectItemCaseSensitive(root,"active"))) {cJSON_Delete(root);return false;}
     memset(c,0,sizeof *c);
 #define STR(field) do {cJSON *v=cJSON_GetObjectItemCaseSensitive(root,#field);if(cJSON_IsString(v)) snprintf(c->field,sizeof c->field,"%s",v->valuestring);} while(0)
-    STR(local_time);STR(name);STR(match);STR(title);STR(clock);STR(updated);STR(extra);
+    STR(weather_temp);STR(weather_desc);STR(weather_feels);STR(weather_humidity);STR(weather_updated);
+    STR(eth_usd);STR(eth_mxn);STR(eth_updated);STR(local_time);STR(name);STR(match);STR(title);STR(clock);STR(updated);STR(extra);
     STR(voice_reply_id);STR(notice_id);STR(notice_source);STR(notice_title);STR(notice_message);STR(notice_time);
 #undef STR
     if(c->notice_id[0]) {
@@ -40,6 +41,8 @@ bool monitor_decode(const char *json, companion_card_t *c) {
     cJSON *duration=cJSON_GetObjectItemCaseSensitive(root,"notice_seconds");c->notice_seconds=cJSON_IsNumber(duration)?duration->valueint:20;
     duration=cJSON_GetObjectItemCaseSensitive(root,"notice_priority");c->notice_priority=cJSON_IsNumber(duration)?duration->valueint:1;
     c->notice_demo=cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"notice_demo"));
+    c->weather_stale=!cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(root,"weather_stale"));
+    c->eth_stale=!cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(root,"eth_stale"));
     c->voice_ready=cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"voice_ready"));
     c->open_view=cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"show"));
     c->active=cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"active"));
@@ -60,7 +63,7 @@ static void worker(void *arg) {
     int fd=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
     struct sockaddr_in address={.sin_family=AF_INET,.sin_port=htons(19432),.sin_addr.s_addr=htonl(INADDR_ANY)};
     if(fd<0||bind(fd,(struct sockaddr *)&address,sizeof address)<0){ESP_LOGE(TAG,"UDP unavailable");if(fd>=0)close(fd);vTaskDeleteWithCaps(NULL);return;}
-    char buf[1536];double last_seq=0;
+    char buf[2304];double last_seq=0;
     ESP_LOGI(TAG,"WiFi receiver ready UDP 19432");
     for(;;){
         struct sockaddr_in peer;socklen_t size=sizeof peer;
@@ -92,7 +95,7 @@ void monitor_net_start(void) {
     esp_err_t e=nvs_get_str(h,"key",key,&n);nvs_close(h);if(e!=ESP_OK||strlen(key)!=64)return;
     pending=xQueueCreate(1,sizeof(companion_card_t));completed=xQueueCreate(1,33);
     if(!pending||!completed||!net_port_monitor_start()){ESP_LOGW(TAG,"WiFi monitor not started; USB still available");return;}
-    if(xTaskCreateWithCaps(worker,"monitor-rx",6144,NULL,3,NULL,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)!=pdPASS)ESP_LOGE(TAG,"WiFi receiver task allocation failed");
+    if(xTaskCreateWithCaps(worker,"monitor-rx",8192,NULL,3,NULL,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)!=pdPASS)ESP_LOGE(TAG,"WiFi receiver task allocation failed");
 }
 void monitor_net_poll(void) {char done[33];snprintf(done,sizeof done,"%s",companion_notice_done());if(completed)xQueueOverwrite(completed,done);companion_card_t c;if(pending&&xQueueReceive(pending,&c,0)==pdTRUE){voice_port_reply(c.voice_reply_id);companion_set(&c,esp_timer_get_time());if(c.open_view)companion_show(true);}}
 void monitor_net_status(void) {ESP_LOGI(TAG,"WiFi cards received: %u",received);}
