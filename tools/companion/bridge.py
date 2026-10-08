@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Read Bob's saved cards and mirror them to Pocket Tank over USB. No bot imports."""
 import argparse
+import socket
+import hmac
+import hashlib
+import subprocess
+import re
 import json
 import math
 import pathlib
@@ -49,8 +54,71 @@ def demo_card():
                 clock='Q3 08:24', updated='PRUEBA', extra='DATOS FICTICIOS PARA VERIFICACION', state='in', yards=48, average=65)
 
 
+
+DEFAULT_KEY = pathlib.Path.home() / 'Library/Application Support/BobMonitor/monitor-key'
+
+def wifi_packet(payload, key, seq):
+    body = json.dumps(dict(payload, seq=seq), separators=(',', ':'), ensure_ascii=True, allow_nan=False)
+    signature = hmac.new(key.encode(), body.encode(), hashlib.sha256).hexdigest()
+    return json.dumps({'body': body, 'sig': signature}, separators=(',', ':')).encode()
+
+def broadcast_address():
+    try:
+        route = subprocess.check_output(['/sbin/route', '-n', 'get', 'default'], text=True)
+        interface = re.search(r'interface:\s+(\w+)', route).group(1)
+        config = subprocess.check_output(['/sbin/ifconfig', interface], text=True)
+        return re.search(r'broadcast\s+([0-9.]+)', config).group(1)
+    except (OSError, subprocess.CalledProcessError, AttributeError):
+        return '255.255.255.255'
+
+def wifi_main(args):
+    key = args.key_file.read_text().strip()
+    if len(key) != 64 or any(c not in '0123456789abcdefABCDEF' for c in key):
+        raise ValueError('Clave del monitor invalida')
+    started = time.monotonic()
+    last_ack = 0
+    target = args.host or broadcast_address()
+    next_discovery = 0
+    show_pending = args.show
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.settimeout(2)
+        while True:
+            if not args.host and time.monotonic() > next_discovery:
+                target = broadcast_address(); next_discovery = time.monotonic() + 30
+            cards, stale = load_cards(args.source)
+            index = int((time.monotonic()-started)//12) % max(1,len(cards))
+            card = demo_card() if args.demo else cards[index] if cards else {}
+            payload = payload_for(card,stale,args.demo)
+            payload['show'] = show_pending
+            seq = time.time_ns() // 1000000
+            sock.sendto(wifi_packet(payload,key,seq),(target,19432))
+            accepted = False
+            deadline = time.monotonic()+2
+            while time.monotonic()<deadline:
+                try:
+                    ack, peer = sock.recvfrom(256)
+                    data = json.loads(ack)
+                    if data.get('ok') is True and data.get('seq') == seq:
+                        accepted = True
+                        if not last_ack: print('Monitor WiFi conectado: '+peer[0],flush=True)
+                        last_ack = time.monotonic(); show_pending = False
+                        break
+                except socket.timeout: break
+                except (ValueError,AttributeError): continue
+            if args.once:
+                if not accepted: raise RuntimeError('La placa no confirmo la tarjeta por WiFi')
+                print('Tarjeta WiFi confirmada por la ESP32'); return
+            if last_ack and time.monotonic()-last_ack>30:
+                print('Esperando reconexion WiFi del monitor',flush=True);last_ack=0
+            time.sleep(3)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--transport', choices=['usb','wifi'], default='usb')
+    parser.add_argument('--host', help='Direccion de la placa; sin ella se descubre mediante la red local')
+    parser.add_argument('--key-file', type=pathlib.Path, default=DEFAULT_KEY)
     parser.add_argument('--port', default='/dev/cu.usbmodem2401')
     parser.add_argument('--source', type=pathlib.Path, default=DEFAULT_SOURCE)
     parser.add_argument('--demo', action='store_true')
@@ -61,6 +129,10 @@ def main():
     if args.json:
         cards, stale = load_cards(args.source)
         print(json.dumps(payload_for(demo_card() if args.demo else cards[0] if cards else {}, stale, args.demo)))
+        return
+    if args.transport == "wifi":
+        try: wifi_main(args)
+        except KeyboardInterrupt: pass
         return
     import serial
     connection = None

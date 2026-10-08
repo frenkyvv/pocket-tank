@@ -4,7 +4,7 @@
 #include <stdint.h>
 typedef struct {
     char name[33], match[35], title[32], clock[25], updated[21], extra[40];
-    bool active, has_yards, has_average, demo, stale;
+    bool active, has_yards, has_average, demo, stale, wireless, open_view;
     float yards, average;
     int state; /* 0 waiting, 1 live, 2 final */
 } companion_card_t;

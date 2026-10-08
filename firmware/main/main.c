@@ -19,6 +19,7 @@
 #include "advisor.h"
 #include "render.h"
 #include "companion.h"
+#include "monitor_net.h"
 #include "psram_plan.h"
 #include "display_port.h"
 #include "advisor_llm_esp.h"
@@ -620,6 +621,7 @@ static void tank_task(void *arg) {
         display_port_set_inverted(inv);   /* per-frame, so a flip lands between flushes */
         touch_port_set_inverted(inv);
         touch_port_poll(&tank);
+        monitor_net_poll();
         director_poll(&tank);
         int ans = touch_port_confirm_take();
         if (ans > 0) reset_tank();
@@ -899,7 +901,8 @@ void app_main(void) {
     if (update_mode_pending()) { brightness_apply(false); update_mode_run(fb[0]); }
     else if (provision_mode_wanted()) provision_mode_run(fb[0]);   /* just installed, no network yet: the page's Wi-Fi step, the glass dark */
     s_rtc = rtc_port_init(board_i2c_bus());   /* wall clock for the ravenous rule (before the clockless night's sync) */
-    net_clock_boot(fb[0]);            /* no RTC chip and a saved network: the time from the internet, before the advisor takes the heap */
+    net_clock_boot(fb[0]);
+    monitor_net_start();            /* no RTC chip and a saved network: the time from the internet, before the advisor takes the heap */
     /* the advisor's hot buffers (~70 KB of internal SRAM, advisor_llm_esp.c)
        come before the discretionary caches below: the LLM is not optional */
     /* model: mmap the raw partition; weights are read through the flash cache */

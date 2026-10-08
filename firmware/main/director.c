@@ -13,6 +13,7 @@
 #include "setup.h"
 #include "director.h"
 #include "companion.h"
+#include "monitor_net.h"
 #include "cJSON.h"
 #include <math.h>
 #include "update.h"
@@ -224,26 +225,18 @@ static void run(tank_t *t, char *line) {
     if (!strncmp(line, "monitor ", 8)) {
         const char *payload = line + 8;
         if (!strcmp(payload, "status")) {
+            monitor_net_status();
             const companion_card_t *c=companion_card();
             ESP_LOGI(TAG,"MONITOR STATUS visible=%d active=%d demo=%d yards=%s%.1f average=%s%.1f name=%s", companion_visible(),c->active,c->demo,c->has_yards?"":"unknown/",c->yards,c->has_average?"":"unknown/",c->average,c->name);
             return;
         }
         if (!strcmp(payload, "show")) { companion_show(true); ESP_LOGI(TAG,"MONITOR OK show"); return; }
         if (!strcmp(payload, "hide")) { companion_show(false); ESP_LOGI(TAG,"MONITOR OK hide"); return; }
-        cJSON *root = cJSON_Parse(payload);
-        if (!cJSON_IsObject(root) || !cJSON_IsBool(cJSON_GetObjectItemCaseSensitive(root,"active"))) { cJSON_Delete(root); ESP_LOGW(TAG,"MONITOR ERROR json"); return; }
-        companion_card_t c = {0};
-#define MON_STR(field) do { cJSON *v=cJSON_GetObjectItemCaseSensitive(root,#field); if(cJSON_IsString(v)) snprintf(c.field,sizeof c.field,"%s",v->valuestring); } while(0)
-        MON_STR(name); MON_STR(match); MON_STR(title); MON_STR(clock); MON_STR(updated); MON_STR(extra);
-#undef MON_STR
-        c.active = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"active"));
-        c.demo = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"demo"));
-        c.stale = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"stale"));
-        cJSON *v=cJSON_GetObjectItemCaseSensitive(root,"yards"); c.has_yards=cJSON_IsNumber(v) && isfinite(v->valuedouble); if(c.has_yards) c.yards=v->valuedouble;
-        v=cJSON_GetObjectItemCaseSensitive(root,"average"); c.has_average=cJSON_IsNumber(v) && isfinite(v->valuedouble); if(c.has_average) c.average=v->valuedouble;
-        v=cJSON_GetObjectItemCaseSensitive(root,"state");
-        if(cJSON_IsString(v)) c.state=!strcmp(v->valuestring,"in")?1:!strcmp(v->valuestring,"post")?2:0;
-        companion_set(&c,esp_timer_get_time()); cJSON_Delete(root);
+        if (!strncmp(payload,"key ",4)) { ESP_LOGI(TAG,"MONITOR key %s (restart to enable WiFi)",monitor_key_set(payload+4)?"saved":"rejected"); return; }
+        if (!strcmp(payload,"restart")) { vTaskDelay(pdMS_TO_TICKS(100)); esp_restart(); return; }
+        companion_card_t c;
+        if (!monitor_decode(payload,&c)) {ESP_LOGW(TAG,"MONITOR ERROR json");return;}
+        companion_set(&c,esp_timer_get_time());
         ESP_LOGI(TAG,"MONITOR OK card"); return;
     }
 

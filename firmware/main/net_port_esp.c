@@ -107,7 +107,7 @@ static EventGroupHandle_t s_ev;
 #define EV_GOT_IP       (1 << 0)
 #define EV_DISCONNECTED (1 << 1)
 static esp_netif_t  *s_netif;
-static bool          s_up, s_connected;
+static bool          s_up, s_connected, s_monitor;
 static int           s_disc_reason;
 static char          s_ssid[NET_SSID_MAX + 1], s_pass[NET_PASS_MAX + 1];
 static net_ap_t      s_aps[NET_SCAN_MAX]; static int s_n_aps;
@@ -119,8 +119,10 @@ static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data) {
         wifi_event_sta_disconnected_t *d = data;
         s_disc_reason = d->reason; s_connected = false;
         xEventGroupSetBits(s_ev, EV_DISCONNECTED);
+        if(s_monitor) esp_wifi_connect();
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         s_connected = true;
+        if(s_monitor) {ip_event_got_ip_t *ip=data;ESP_LOGI(TAG,"monitor WiFi connected: " IPSTR,IP2STR(&ip->ip_info.ip));}
         xEventGroupSetBits(s_ev, EV_GOT_IP);
     }
 }
@@ -141,6 +143,18 @@ static bool radio_up(void) {
     s_up = true;
     ESP_LOGI(TAG, "radio up: internal heap %u KB free after", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024);
     return true;
+}
+
+bool net_port_monitor_start(void) {
+    char ssid[NET_SSID_MAX+1]={0},pass[NET_PASS_MAX+1]={0};
+    if(!net_port_creds_get(ssid,pass))return false;
+    if(!s_ev)s_ev=xEventGroupCreate();
+    if(!s_ev||!radio_up())return false;
+    wifi_config_t wc={0};memcpy(wc.sta.ssid,ssid,sizeof wc.sta.ssid);memcpy(wc.sta.password,pass,sizeof wc.sta.password);
+    wc.sta.pmf_cfg.capable=true;
+    if(esp_wifi_set_config(WIFI_IF_STA,&wc)!=ESP_OK)return false;
+    s_monitor=true;esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+    return esp_wifi_connect()==ESP_OK;
 }
 
 static void do_scan(void) {

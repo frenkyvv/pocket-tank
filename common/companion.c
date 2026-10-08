@@ -36,8 +36,9 @@ void companion_render(uint16_t *fb, int s, int64_t now, bool chip) {
         text(fb,s,24,110,2,white,"ESPERANDO SEGUIMIENTO");
         text(fb,s,24,160,2,gray,"PIDE A BOB: SIGUE A...");
         text(fb,s,24,210,2,gray,"LA PECERA SIGUE ACTIVA");
-        if (received && now-received > 30000000) text(fb,s,24,270,2,red,"USB SIN DATOS");
+        if (received && now-received > 30000000) text(fb,s,24,270,2,red,"ENLACE SIN DATOS");
         else if(card.stale) text(fb,s,24,270,2,red,"BOB SIN ACTUALIZAR");
+        if(received && now-received<30000000) text(fb,s,18,348,1,green,card.wireless?"ENLACE WIFI ACTIVO":"ENLACE USB ACTIVO");
         return;
     }
     bool stale = card.stale || !received || now-received > 30000000;
@@ -64,6 +65,6 @@ void companion_render(uint16_t *fb, int s, int64_t now, bool chip) {
         }
     } else text(fb,s,18,270,2,gray,"PROMEDIO NO DISPONIBLE");
     text(fb,s,18,326,1,gray,card.extra);
-    snprintf(buf,sizeof buf,"BOB %s / USB",card.updated);
+    snprintf(buf,sizeof buf,"BOB %s / %s",card.updated,card.wireless?"WIFI":"USB");
     text(fb,s,18,348,1,gray,buf);
 }

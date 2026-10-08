@@ -33,3 +33,21 @@ untracked; official OTA images use a different key. Use USB to restore the
 official app before using the official OTA updater again. Flash only the
 app at 0x10000, preserving the partition table, NVS at 0x9000, model and
 Wi-Fi credentials. Back up the device before the first custom flash.
+
+## Wi-Fi transport
+
+`python bridge.py --transport wifi --show` uses a signed UDP snapshot on
+port 19432. The sender discovers the broadcast address of the Mac's current
+default LAN interface every 30 seconds. Only a matching HMAC-SHA256 key and
+an increasing millisecond sequence are accepted. The key is a random
+64-character hex string in the Mac's Application Support/BobMonitor/monitor-key
+(mode 0600) and the board's separate NVS `monitor/key`. It is never logged
+or committed. Configure over USB with `monitor key <hex>` and restart with
+`monitor restart`. The original Wi-Fi credentials are reused. A FreeRTOS
+queue transfers snapshots to the rendering task; UDP never mutates fish.
+
+The default installed Mac service now uses Wi-Fi, not the serial port.
+`--transport usb` remains available for recovery. The Mac must stay awake,
+Bob must be running and both devices must share the LAN. No cloud service
+or internet forwarding is needed. A USB charger supplies power independently
+of the Mac. In idle monitor view, ENLACE WIFI ACTIVO confirms recent snapshots.

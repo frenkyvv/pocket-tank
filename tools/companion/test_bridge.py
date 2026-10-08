@@ -3,10 +3,22 @@ import pathlib
 import tempfile
 import unittest
 import json
+import hashlib
+import hmac
 spec = importlib.util.spec_from_file_location('bridge', pathlib.Path(__file__).with_name('bridge.py'))
 bridge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bridge)
 class BridgeTests(unittest.TestCase):
+    def test_wifi_signature_and_bounded_packet(self):
+        key='a'*64
+        payload=bridge.payload_for(bridge.demo_card(),demo=True)
+        packet=json.loads(bridge.wifi_packet(payload,key,123456))
+        expected=hmac.new(key.encode(),packet['body'].encode(),hashlib.sha256).hexdigest()
+        self.assertEqual(packet['sig'],expected)
+        self.assertEqual(json.loads(packet['body'])['seq'],123456)
+        changed=hmac.new(key.encode(),(packet['body']+' ').encode(),hashlib.sha256).hexdigest()
+        self.assertNotEqual(packet['sig'],changed)
+        self.assertLess(len(bridge.wifi_packet(payload,key,123456)),1536)
     def test_unknown_yards_are_not_zero(self):
         p=bridge.payload_for({'name':'José','yards':None,'average':float('nan')})
         self.assertIsNone(p['yards']); self.assertIsNone(p['average']); self.assertEqual(p['name'],'JOSE')
