@@ -23,5 +23,6 @@ class BridgeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p=pathlib.Path(d)/'state.json'
             self.assertEqual(bridge.load_cards(p),([],False))
+            p.write_text('{}'); self.assertEqual(bridge.load_cards(p),([],False))
             p.write_text('bad json'); self.assertEqual(bridge.load_cards(p),([],True))
 if __name__=='__main__': unittest.main()

@@ -33,7 +33,7 @@ def load_cards(source):
         cards = [row['last_card'] for row in data.values() if isinstance(row, dict) and isinstance(row.get('last_card'), dict)]
         # Bob saves last_card only after a successful Telegram update. Older data
         # is explicitly labelled instead of claiming the current game is live.
-        return cards, time.time() - source.stat().st_mtime > 300
+        return cards, bool(cards) and time.time() - source.stat().st_mtime > 300
     except FileNotFoundError:
         return [], False
     except (OSError, ValueError, AttributeError):
