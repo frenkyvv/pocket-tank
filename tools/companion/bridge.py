@@ -66,18 +66,22 @@ def main():
     connection = None
     show_pending = args.show
     started = time.monotonic()
+    confirmed = False
     try:
         while True:
             try:
                 if connection is None:
                     connection = serial.Serial()
                     connection.port, connection.baudrate, connection.timeout = args.port, 115200, 0.2
-                    # Opening USB must not reset the running fish simulation.
-                    connection.dtr = connection.rts = False
+                    # Native USB-JTAG interprets DTR/RTS transitions as reset.
+                    # Let macOS keep those lines instead of toggling on open.
+                    connection.dsrdtr = True
+                    connection.rtscts = True
                     connection.open()
                     time.sleep(3)
                     connection.reset_input_buffer()
                     show_pending = args.show
+                    confirmed = False
                 cards, stale = load_cards(args.source)
                 index = int((time.monotonic()-started)//12) % max(1, len(cards))
                 card = demo_card() if args.demo else cards[index] if cards else {}
@@ -93,6 +97,9 @@ def main():
                     if b'MONITOR OK card' in line:
                         accepted = True
                         break
+                if accepted and not confirmed:
+                    print("Monitor USB conectado; leyendo tarjetas de Bob", flush=True)
+                    confirmed = True
                 if args.once:
                     if not accepted:
                         raise RuntimeError('La placa no confirmo la tarjeta del monitor')
