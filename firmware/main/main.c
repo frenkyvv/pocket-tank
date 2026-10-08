@@ -728,7 +728,7 @@ static void tank_task(void *arg) {
             if (touch_port_confirm_up())         /* reset prompt: over everything, fish still swim */
                 render_confirm_reset(fb[cur], TANK_W, touch_port_confirm_frac());
             if (setup_active() || touch_port_confirm_up()) companion_show(false);
-            companion_render(fb[cur], TANK_W, now, !setup_active() && !tank.ui_cover && sel < 0);
+            else companion_render(fb[cur], TANK_W, now, !setup_active() && !tank.ui_cover && sel < 0);
             int64_t t1 = esp_timer_get_time();
             if (sel >= 0) { card_us += t1 - tc; card_frames++; }
             /* the next frame's scene prefetch starts BEFORE this frame's flush (2026-10-03): the copy

@@ -226,6 +226,7 @@ static void run(tank_t *t, char *line) {
         const char *payload = line + 8;
         if (!strcmp(payload, "status")) {
             monitor_net_status();
+            ESP_LOGI(TAG,"NOTICE active=%d done=%s",companion_notice_active(),companion_notice_done());
             const companion_card_t *c=companion_card();
             ESP_LOGI(TAG,"MONITOR STATUS visible=%d active=%d demo=%d yards=%s%.1f average=%s%.1f name=%s", companion_visible(),c->active,c->demo,c->has_yards?"":"unknown/",c->yards,c->has_average?"":"unknown/",c->average,c->name);
             return;

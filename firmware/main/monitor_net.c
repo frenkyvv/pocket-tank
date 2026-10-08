@@ -19,7 +19,7 @@
 #include <unistd.h>
 static const char *TAG="monitor-net";
 static char key[65];
-static QueueHandle_t pending;
+static QueueHandle_t pending, completed;
 static unsigned received;
 bool net_port_monitor_start(void);
 bool monitor_decode(const char *json, companion_card_t *c) {
@@ -28,7 +28,15 @@ bool monitor_decode(const char *json, companion_card_t *c) {
     memset(c,0,sizeof *c);
 #define STR(field) do {cJSON *v=cJSON_GetObjectItemCaseSensitive(root,#field);if(cJSON_IsString(v)) snprintf(c->field,sizeof c->field,"%s",v->valuestring);} while(0)
     STR(name);STR(match);STR(title);STR(clock);STR(updated);STR(extra);
+    STR(notice_id);STR(notice_source);STR(notice_title);STR(notice_message);STR(notice_time);
 #undef STR
+    if(c->notice_id[0]) {
+        if(strlen(c->notice_id)!=32){cJSON_Delete(root);return false;}
+        for(int i=0;i<32;i++)if(!isxdigit((unsigned char)c->notice_id[i])){cJSON_Delete(root);return false;}
+    }
+    cJSON *duration=cJSON_GetObjectItemCaseSensitive(root,"notice_seconds");c->notice_seconds=cJSON_IsNumber(duration)?duration->valueint:20;
+    duration=cJSON_GetObjectItemCaseSensitive(root,"notice_priority");c->notice_priority=cJSON_IsNumber(duration)?duration->valueint:1;
+    c->notice_demo=cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"notice_demo"));
     c->open_view=cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"show"));
     c->active=cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"active"));
     c->demo=cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root,"demo"));
@@ -66,7 +74,8 @@ static void worker(void *arg) {
         companion_card_t card;
         if(cJSON_IsNumber(seq)&&isfinite(seq->valuedouble)&&seq->valuedouble>last_seq&&monitor_decode(body->valuestring,&card)) {
             last_seq=seq->valuedouble;card.wireless=true;xQueueOverwrite(pending,&card);received++;
-            char ack[96];int len=snprintf(ack,sizeof ack,"{\"ok\":true,\"seq\":%.0f}",last_seq);
+            char done[33]={0};xQueuePeek(completed,done,0);
+            char ack[144];int len=snprintf(ack,sizeof ack,"{\"ok\":true,\"seq\":%.0f,\"done\":\"%s\"}",last_seq,done);
             sendto(fd,ack,len,0,(struct sockaddr *)&peer,size);
             if(received==1)ESP_LOGI(TAG,"first authenticated WiFi card received");
         }
@@ -77,9 +86,9 @@ void monitor_net_start(void) {
     nvs_handle_t h;size_t n=sizeof key;
     if(nvs_open("monitor",NVS_READONLY,&h)!=ESP_OK)return;
     esp_err_t e=nvs_get_str(h,"key",key,&n);nvs_close(h);if(e!=ESP_OK||strlen(key)!=64)return;
-    pending=xQueueCreate(1,sizeof(companion_card_t));
-    if(!pending||!net_port_monitor_start()){ESP_LOGW(TAG,"WiFi monitor not started; USB still available");return;}
+    pending=xQueueCreate(1,sizeof(companion_card_t));completed=xQueueCreate(1,33);
+    if(!pending||!completed||!net_port_monitor_start()){ESP_LOGW(TAG,"WiFi monitor not started; USB still available");return;}
     if(xTaskCreateWithCaps(worker,"monitor-rx",6144,NULL,3,NULL,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)!=pdPASS)ESP_LOGE(TAG,"WiFi receiver task allocation failed");
 }
-void monitor_net_poll(void) {companion_card_t c;if(pending&&xQueueReceive(pending,&c,0)==pdTRUE){companion_set(&c,esp_timer_get_time());if(c.open_view)companion_show(true);}}
+void monitor_net_poll(void) {char done[33];snprintf(done,sizeof done,"%s",companion_notice_done());if(completed)xQueueOverwrite(completed,done);companion_card_t c;if(pending&&xQueueReceive(pending,&c,0)==pdTRUE){companion_set(&c,esp_timer_get_time());if(c.open_view)companion_show(true);}}
 void monitor_net_status(void) {ESP_LOGI(TAG,"WiFi cards received: %u",received);}

@@ -4063,6 +4063,27 @@ static int selftest_card(const char *prefix) {
 }
 
 int main(int argc, char **argv) {
+    if (argc > 1 && !strcmp(argv[1], "--companion-notice-preview")) {
+        static uint16_t preview[TANK_W*TANK_H];
+        companion_card_t value={.notice_seconds=20,.notice_priority=1,.notice_demo=true};
+        snprintf(value.notice_id,sizeof value.notice_id,"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        snprintf(value.notice_source,sizeof value.notice_source,"SUSI");
+        snprintf(value.notice_title,sizeof value.notice_title,"RECORDATORIO DE PRUEBA");
+        snprintf(value.notice_message,sizeof value.notice_message,"ESTE ES UN AVISO DE PRUEBA. PUEDES TOCAR LISTO PARA VOLVER AL SEGUIMIENTO O A TU PECERA.");
+        snprintf(value.notice_time,sizeof value.notice_time,"12:30");
+        companion_show(true);companion_set(&value,1000000);companion_render(preview,TANK_W,1000000,false);
+        write_ppm(argc>2?argv[2]:"notice.ppm",preview);
+        companion_set(&value,20000000);companion_render(preview,TANK_W,22000000,false);
+        if(companion_notice_active()||strcmp(companion_notice_done(),value.notice_id))return 1;
+        snprintf(value.notice_id,sizeof value.notice_id,"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        companion_set(&value,23000000);companion_touch(PAGE_X+100,PAGE_Y+335,true);companion_touch(PAGE_X+100,PAGE_Y+335,false);
+        if(companion_notice_active()||!companion_visible())return 2;
+        snprintf(value.notice_id,sizeof value.notice_id,"cccccccccccccccccccccccccccccccc");
+        companion_set(&value,24000000);companion_touch(PAGE_X+390,PAGE_Y+20,true);companion_touch(PAGE_X+390,PAGE_Y+20,false);
+        if(companion_notice_active()||companion_visible())return 3;
+        printf("companion notices: expiry, deduplication, LISTO and PECERA passed\n");return 0;
+    }
+
     if (argc > 1 && !strcmp(argv[1], "--companion-preview")) {
         static uint16_t preview[TANK_W * TANK_H];
         companion_card_t demo = {.active=true,.demo=true,.has_yards=true,.has_average=true,.yards=48,.average=65,.state=1};

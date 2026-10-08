@@ -1,10 +1,12 @@
 import importlib.util
+import sys
 import pathlib
 import tempfile
 import unittest
 import json
 import hashlib
 import hmac
+sys.path.insert(0,str(pathlib.Path(__file__).parent))
 spec = importlib.util.spec_from_file_location('bridge', pathlib.Path(__file__).with_name('bridge.py'))
 bridge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bridge)

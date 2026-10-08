@@ -51,3 +51,19 @@ The default installed Mac service now uses Wi-Fi, not the serial port.
 Bob must be running and both devices must share the LAN. No cloud service
 or internet forwarding is needed. A USB charger supplies power independently
 of the Mac. In idle monitor view, ENLACE WIFI ACTIVO confirms recent snapshots.
+
+## Susi notices
+
+Susi-Qwen writes private-owner reminders, completed web reports and Registry
+alert summaries to an atomic local outbox. Reports and Registry never include
+patient details. The Wi-Fi bridge sends one notice at a time alongside Bob's
+card, retains it until the device acknowledges dismissal or the 20-second
+display finishes, and skips expired events (default one hour). Repeated
+heartbeats do not reset the notice timer. LISTO returns to the underlying
+monitor; PECERA returns to the aquarium. This receipt indicates display
+completion, not proof that the user read it. Both devices must share the LAN
+and the Mac must be awake. USB recovery does not drain the notification outbox.
+
+Run `python3 -m unittest discover -s tools/companion -p 'test_*.py'` and
+`sim/fishsim --companion-notice-preview output.ppm` for transport/outbox and
+notice expiry, duplicate suppression and touch behavior checks.

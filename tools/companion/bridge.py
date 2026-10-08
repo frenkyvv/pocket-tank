@@ -6,6 +6,9 @@ import hmac
 import hashlib
 import subprocess
 import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from notifications import NotificationQueue
 import json
 import math
 import pathlib
@@ -18,7 +21,7 @@ FIELDS = {'name': 32, 'match': 34, 'title': 31, 'clock': 24, 'updated': 20, 'ext
 
 def display_text(value, limit):
     value = unicodedata.normalize('NFKD', str(value or '')).encode('ascii', 'ignore').decode()
-    return ''.join(c for c in value if 32 <= ord(c) < 127).upper()[:limit]
+    return ''.join(c for c in value if 32 <= ord(c) < 127).replace('\\','/').replace(chr(34),chr(39)).upper()[:limit]
 
 
 def payload_for(card, stale=False, demo=False):
@@ -76,6 +79,7 @@ def wifi_main(args):
     if len(key) != 64 or any(c not in '0123456789abcdefABCDEF' for c in key):
         raise ValueError('Clave del monitor invalida')
     started = time.monotonic()
+    notifications = NotificationQueue()
     last_ack = 0
     target = args.host or broadcast_address()
     next_discovery = 0
@@ -91,6 +95,12 @@ def wifi_main(args):
             card = demo_card() if args.demo else cards[index] if cards else {}
             payload = payload_for(card,stale,args.demo)
             payload['show'] = show_pending
+            event=notifications.next()
+            if event:
+                payload.update(notice_id=event['id'],notice_source=display_text(event['source'],16),
+                    notice_title=display_text(event['title'],32),notice_message=display_text(event['message'],240),
+                    notice_time=datetime.fromtimestamp(event['created'],ZoneInfo('America/Monterrey')).strftime('%H:%M'),
+                    notice_priority=event['priority'],notice_seconds=20,notice_demo=event.get('demo',False))
             seq = time.time_ns() // 1000000
             sock.sendto(wifi_packet(payload,key,seq),(target,19432))
             accepted = False
@@ -101,6 +111,7 @@ def wifi_main(args):
                     data = json.loads(ack)
                     if data.get('ok') is True and data.get('seq') == seq:
                         accepted = True
+                        if event and data.get('done')==event['id']:notifications.finish(event['id'])
                         if not last_ack: print('Monitor WiFi conectado: '+peer[0],flush=True)
                         last_ack = time.monotonic(); show_pending = False
                         break

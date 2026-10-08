@@ -5,12 +5,30 @@
 #include <math.h>
 static companion_card_t card;
 static bool visible, pressed, captured;
-static int64_t received;
-void companion_set(const companion_card_t *value, int64_t now) { card = *value; received = now; }
+static int64_t received, notice_started;
+static companion_card_t notice;
+static bool notice_up;
+static char notice_seen[33], notice_done[33];
+const char *companion_notice_done(void) {return notice_done;}
+bool companion_notice_active(void) {return notice_up;}
+static void dismiss_notice(void) {snprintf(notice_done,sizeof notice_done,"%s",notice.notice_id);notice_up=false;}
+
+void companion_set(const companion_card_t *value, int64_t now) { card = *value; received = now;
+    if(value->notice_id[0] && strcmp(value->notice_id,notice_seen)) {
+        notice=*value;snprintf(notice_seen,sizeof notice_seen,"%s",value->notice_id);
+        notice_up=true;notice_started=0;
+    } }
 void companion_show(bool value) { visible = value; }
-bool companion_visible(void) { return visible; }
+bool companion_visible(void) { return visible || notice_up; }
 const companion_card_t *companion_card(void) { return &card; }
 bool companion_touch(float x, float y, bool down) {
+    if (notice_up) {
+        if(down && !pressed) {
+            if(x>=PAGE_X+350 && y<PAGE_Y+42) {dismiss_notice();visible=false;}
+            else if(y>=PAGE_Y+308 && y<PAGE_Y+360) dismiss_notice();
+        }
+        pressed=down;captured=down;return true;
+    }
     if (down && !pressed) {
         captured = visible || (x >= PAGE_X + 350 && y >= PAGE_Y && y < PAGE_Y + 42);
         if (captured && x >= PAGE_X + 350 && y < PAGE_Y + 42) visible = !visible;
@@ -25,8 +43,32 @@ static void text(uint16_t *fb, int s, int x, int y, int scale, uint32_t rgb, con
 }
 void companion_render(uint16_t *fb, int s, int64_t now, bool chip) {
     const uint32_t white=0xf6f8fa, gray=0xaeb7c1, green=0x35dfa0, red=0xff667b;
+    if(notice_up) {
+        if(!notice_started)notice_started=now;
+        int seconds=notice.notice_seconds; if(seconds<5||seconds>60)seconds=20;
+        if(now-notice_started>seconds*1000000LL) dismiss_notice();
+    }
+    if(notice_up) {
+        render_rect(fb,s,-PAGE_X,-PAGE_Y,TANK_W,TANK_H,0x0b111c);
+        text(fb,s,18,14,2,green,notice.notice_source[0]?notice.notice_source:"SUSI");
+        render_button(fb,s,350,4,94,32,0x182c34,0x405260,"PECERA",2);
+        text(fb,s,18,52,2,notice.notice_priority>=2?red:gray,notice.notice_demo?"DEMO / AVISO DE PRUEBA":notice.notice_priority>=2?"AVISO PRIORITARIO":"NUEVO AVISO");
+        text(fb,s,18,86,2,white,notice.notice_title);
+        const char *cursor=notice.notice_message;
+        for(int row=0;row<7 && *cursor;row++) {
+            while(*cursor==' ')cursor++;
+            int n=0;while(cursor[n] && cursor[n]!='\n' && n<34)n++;
+            if(n==34 && cursor[n] && cursor[n]!=' ') {int cut=n;while(cut>0 && cursor[cut]!=' ')cut--;if(cut>0)n=cut;}
+            char line[35];memcpy(line,cursor,n);line[n]=0;
+            if(row==6 && cursor[n] && n>=3)memcpy(line+n-3,"...",3);
+            text(fb,s,18,122+row*23,2,white,line);cursor+=n;if(*cursor=='\n'||*cursor==' ')cursor++;
+        }
+        text(fb,s,18,290,1,gray,notice.notice_time);
+        render_button(fb,s,24,318,400,38,0x183b32,0x35dfa0,"LISTO",2);
+        return;
+    }
     if (!visible) {
-        if (chip) render_button(fb,s,350,4,94,32,0x101820,0x405260,"BOB",2);
+        if (chip) render_button(fb,s,350,4,94,32,0x101820,0x405260,"AVISOS",2);
         return;
     }
     render_rect(fb,s,-PAGE_X,-PAGE_Y,TANK_W,TANK_H,0x0b0e12);
