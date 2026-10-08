@@ -230,7 +230,7 @@ static void run(tank_t *t, char *line) {
             ESP_LOGI(TAG,"NOTICE active=%d done=%s voice=%d",companion_notice_active(),companion_notice_done(),companion_voice_state());
             const companion_card_t *c=companion_card();
             ESP_LOGI(TAG,"MONITOR STATUS visible=%d active=%d demo=%d yards=%s%.1f average=%s%.1f name=%s", companion_visible(),c->active,c->demo,c->has_yards?"":"unknown/",c->yards,c->has_average?"":"unknown/",c->average,c->name);
-            ESP_LOGI(TAG,"URGENCIAS day=%s total=%s admissions=%s voluntary=%s delays>3h nursing=%s ic=%s updated=%s stale=%d",c->ux_day,c->ux_total,c->ux_admissions,c->ux_voluntary,c->ux_nursing_delay,c->ux_ic_delay,c->ux_updated,c->ux_stale);
+            ESP_LOGI(TAG,"URGENCIAS day=%s total=%s admissions=%s voluntary=%s delays nursing>3h=%s ic>1h=%s updated=%s stale=%d",c->ux_day,c->ux_total,c->ux_admissions,c->ux_voluntary,c->ux_nursing_delay,c->ux_ic_delay,c->ux_updated,c->ux_stale);
             return;
         }
         if (!strcmp(payload,"voice")) {voice_port_start();return;}

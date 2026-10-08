@@ -119,7 +119,8 @@ count and internamientos from the same `build_urgency_summary_data` used by
 Susi's reports. Voluntary discharges come from the official Altas source,
 using `count_altas_range`. Nursing/attention delays use Registro column R
 (`delays_over_three`); IC delays use Interconsultas' own delay duration.
-Both require strictly more than three hours; exactly 3:00 is excluded.
+Nursing requires strictly more than three hours; IC requires strictly more
+than one hour. Exactly 3:00 (nursing) or 1:00 (IC) is excluded.
 
 A separate daemon worker invokes `urgency_source.py` in Susi's existing Python
 environment every 120 seconds. This adapter loads only report access settings,

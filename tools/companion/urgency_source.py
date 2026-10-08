@@ -5,9 +5,6 @@ from zoneinfo import ZoneInfo
 SUSI=pathlib.Path(os.getenv('SUSI_PROJECT',str(pathlib.Path.home()/'Documents/New project/Susi-Qwen')))
 sys.path.insert(0,str(SUSI))
 
-def count_over_three_hours(rows,parse_duration):
-    return sum(1 for row in rows if (duration:=parse_duration(row.tardanza)) is not None and duration>3)
-
 def snapshot():
     from web_panel.reports import _load_private_report_environment,_load_module
     root=_load_private_report_environment();sys.path.insert(0,str(root))
@@ -27,7 +24,7 @@ def snapshot():
     except Exception:result['voluntary']=None
     try:
         inter=reporter.get_latest_interconsultas_rows(sheet_id=os.getenv('INTERCONSULTAS_SHEET_ID') or reporter.DEFAULT_INTERCONSULTAS_SHEET_ID,sheet_name=os.getenv('INTERCONSULTAS_SHEET_TAB') or reporter.DEFAULT_INTERCONSULTAS_SHEET_NAME,lookback_rows=int(os.getenv('INTERCONSULTAS_LOOKBACK_ROWS',str(reporter.DEFAULT_INTERCONSULTAS_LOOKBACK_ROWS))))
-        result['delay_ic']=count_over_three_hours(reporter.build_interconsultas_tarde_data(inter,target)[0],reporter.parse_duration_hours)
+        result['delay_ic']=len(reporter.build_interconsultas_tarde_data(inter,target)[0])
     except Exception:result['delay_ic']=None
     result['checked']=datetime.now(tz).timestamp()
     return result

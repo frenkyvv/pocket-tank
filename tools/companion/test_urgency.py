@@ -15,13 +15,6 @@ class UrgencyTests(unittest.TestCase):
         source={f'PERSONA {i}':i+1 for i in range(30)};p=charts(source)
         self.assertEqual(len(p.split(';')),24);self.assertIn('OTROS|',p)
         self.assertEqual(sum(int(row.split('|')[1]) for row in p.split(';')),sum(source.values()))
-    def test_only_over_three_hours_boundary(self):
-        from urgency_source import count_over_three_hours
-        from types import SimpleNamespace
-        values={'2:59':2+59/60,'3:00':3,'3:01':3+1/60,'4:00':4,'PENDIENTE':None}
-        rows=[SimpleNamespace(tardanza=v) for v in values]
-        self.assertEqual(count_over_three_hours(rows,values.get),2)
-
     def test_maximum_notification_ambient_urgency_packet_fits(self):
         import bridge
         p=bridge.payload_for({k:'W'*v for k,v in bridge.FIELDS.items()})
